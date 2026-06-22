@@ -22,7 +22,8 @@ def main() -> None:
     coordinator = BusinessCoordinator(
         court=CourtPolicy(),
         safety_gate=InternalTaskSafetyGate(),
-        task_executor=executor,
+        executors=(executor,),
+        receipt_store=receipt_store,
     )
 
     print("Inventory Agent detected low stock")
@@ -41,10 +42,7 @@ def main() -> None:
     print(f"Task Executor created task: {result.output['title']}")
     print(f"Receipt written: {result.receipt_id}")
     print(f"Receipt chain valid: {receipt_store.verify_chain()}")
-    print(
-        "Receipt integrity: "
-        + ("HMAC-SHA256" if signing_key else "SHA-256 development mode")
-    )
+    print("Receipt integrity: " + ("HMAC-SHA256" if signing_key else "SHA-256 development mode"))
 
 
 if __name__ == "__main__":
