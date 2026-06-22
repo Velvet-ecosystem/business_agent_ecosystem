@@ -16,10 +16,11 @@ class SafetyDecision:
 class InternalTaskSafetyGate:
     """Allows only small, non-financial internal restock-review tasks."""
 
+    route = "internal-task"
     MAX_QUANTITY = 100
 
     def evaluate(self, intent: BusinessIntent) -> SafetyDecision:
-        if intent.route != "internal-task":
+        if intent.route != self.route:
             return SafetyDecision(False, "unsupported-route")
         if intent.action != "create-restock-review":
             return SafetyDecision(False, "unsupported-action")
