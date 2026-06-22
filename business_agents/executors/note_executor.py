@@ -27,9 +27,17 @@ class NoteExecutor(BaseExecutor):
         self.receipt_store = receipt_store
         self.notes: list[InternalNote] = []
 
-    def execute(self, intent: BusinessIntent, *, authorization_id: str) -> ExecutorResult:
+    def execute(
+        self,
+        intent: BusinessIntent,
+        *,
+        authorization_id: str,
+        authorization_fingerprint: str,
+    ) -> ExecutorResult:
         if not authorization_id.strip():
             raise ValueError("authorization_id is required")
+        if not authorization_fingerprint.strip():
+            raise ValueError("authorization_fingerprint is required")
         if not self.supports(intent):
             raise ValueError("unsupported intent")
 
@@ -40,7 +48,10 @@ class NoteExecutor(BaseExecutor):
             title=title,
             body=body,
             subject_id=intent.subject_id,
-            metadata={"authorization_id": authorization_id},
+            metadata={
+                "authorization_id": authorization_id,
+                "authorization_fingerprint": authorization_fingerprint,
+            },
         )
 
         receipt = self.receipt_store.append(
@@ -50,6 +61,7 @@ class NoteExecutor(BaseExecutor):
             subject_id=intent.subject_id,
             details={
                 "authorization_id": authorization_id,
+                "authorization_fingerprint": authorization_fingerprint,
                 "route": intent.route,
                 "action": intent.action,
                 "note_id": note.note_id,
