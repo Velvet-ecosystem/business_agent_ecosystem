@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from business_agents.agents.inventory_agent import InventoryAgent
+from business_agents.executors.registry import ExecutorRegistry
 from business_agents.executors.task_executor import TaskExecutor
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.chained_receipt_store import ChainedReceiptStore
@@ -22,7 +23,8 @@ def main() -> None:
     coordinator = BusinessCoordinator(
         court=CourtPolicy(),
         safety_gate=InternalTaskSafetyGate(),
-        task_executor=executor,
+        executor_registry=ExecutorRegistry([executor]),
+        receipt_store=receipt_store,
     )
 
     print("Inventory Agent detected low stock")
