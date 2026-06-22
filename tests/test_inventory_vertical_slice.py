@@ -50,7 +50,8 @@ def test_inventory_agent_creates_internal_task_and_receipt(tmp_path: Path) -> No
     receipts = executor.receipt_store.read_all()
     assert len(receipts) == 1
     assert receipts[0].decision == "completed"
-    assert receipts[0].details["authorization_id"].startswith("auth:")
+    assert receipts[0].details["authorization_id"].startswith("auth_")
+    assert len(receipts[0].details["authorization_fingerprint"]) == 64
     assert receipts[0].details["route"] == "internal-task"
     assert receipts[0].details["action"] == "create-restock-review"
     assert executor.receipt_store.verify(receipts[0]) is True
@@ -115,7 +116,8 @@ def test_missing_executor_is_denied_and_receipted(tmp_path: Path) -> None:
     assert receipts[0].actor == "Executor Registry"
     assert receipts[0].decision == "denied"
     assert receipts[0].details["reason"] == "executor-not-available"
-    assert receipts[0].details["authorization_id"].startswith("auth:")
+    assert receipts[0].details["authorization_id"].startswith("auth_")
+    assert len(receipts[0].details["authorization_fingerprint"]) == 64
 
 
 def test_safety_gate_rejects_missing_sku() -> None:

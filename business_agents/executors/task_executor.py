@@ -26,9 +26,17 @@ class TaskExecutor(BaseExecutor):
         self.receipt_store = receipt_store
         self.tasks: list[InternalTask] = []
 
-    def execute(self, intent: BusinessIntent, *, authorization_id: str) -> ExecutorResult:
+    def execute(
+        self,
+        intent: BusinessIntent,
+        *,
+        authorization_id: str,
+        authorization_fingerprint: str,
+    ) -> ExecutorResult:
         if not authorization_id.strip():
             raise ValueError("authorization_id is required")
+        if not authorization_fingerprint.strip():
+            raise ValueError("authorization_fingerprint is required")
         if not self.supports(intent):
             raise ValueError("unsupported intent")
 
@@ -38,9 +46,12 @@ class TaskExecutor(BaseExecutor):
             task_id=f"task_{len(self.tasks) + 1:04d}",
             title=f"Review restock request for {sku}, quantity {quantity}",
             subject_id=intent.subject_id,
-            metadata={"authorization_id": authorization_id, **dict(intent.parameters)},
+            metadata={
+                "authorization_id": authorization_id,
+                "authorization_fingerprint": authorization_fingerprint,
+                **dict(intent.parameters),
+            },
         )
-        self.tasks.append(task)
 
         receipt = self.receipt_store.append(
             actor="Task Executor",
@@ -49,6 +60,7 @@ class TaskExecutor(BaseExecutor):
             subject_id=intent.subject_id,
             details={
                 "authorization_id": authorization_id,
+                "authorization_fingerprint": authorization_fingerprint,
                 "route": intent.route,
                 "action": intent.action,
                 "parameters": dict(intent.parameters),
@@ -56,6 +68,7 @@ class TaskExecutor(BaseExecutor):
                 "title": task.title,
             },
         )
+        self.tasks.append(task)
         return ExecutorResult(
             executor_name="Task Executor",
             status="completed",
