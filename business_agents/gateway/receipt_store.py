@@ -22,13 +22,24 @@ class Receipt:
     subject_id: str
     details: Mapping[str, Any]
     integrity_tag: str
+    integrity_method: str = "sha256"
 
 
 class JsonlReceiptStore:
     """Writes receipts as one canonical JSON object per line."""
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        signing_key: bytes | None = None,
+        require_signing: bool = False,
+    ) -> None:
+        if require_signing and not signing_key:
+            raise ValueError("signing_key is required when require_signing is enabled")
         self.path = Path(path)
+        self.signing_key = signing_key
+        self.require_signing = require_signing
 
     def append(
         self,
@@ -50,8 +61,17 @@ class JsonlReceiptStore:
             "subject_id": subject_id,
             "details": dict(details),
         }
-        integrity_tag = self.calculate_integrity_tag(unsigned)
-        receipt = Receipt(**unsigned, integrity_tag=integrity_tag)
+        integrity_method = "hmac-sha256" if self.signing_key else "sha256"
+        integrity_tag = self.calculate_integrity_tag(
+            unsigned,
+            method=integrity_method,
+            signing_key=self.signing_key,
+        )
+        receipt = Receipt(
+            **unsigned,
+            integrity_tag=integrity_tag,
+            integrity_method=integrity_method,
+        )
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8") as handle:
@@ -76,9 +96,8 @@ class JsonlReceiptStore:
                 raise ValueError(f"invalid receipt at line {line_number}") from exc
         return receipts
 
-    @classmethod
-    def verify(cls, receipt: Receipt) -> bool:
-        """Independently verify that a receipt's canonical content is unchanged."""
+    def verify(self, receipt: Receipt) -> bool:
+        """Verify that a receipt is unchanged and, when signed, authentic."""
         unsigned = {
             "receipt_id": receipt.receipt_id,
             "created_at": receipt.created_at,
@@ -88,12 +107,37 @@ class JsonlReceiptStore:
             "subject_id": receipt.subject_id,
             "details": dict(receipt.details),
         }
-        expected = cls.calculate_integrity_tag(unsigned)
+
+        if receipt.integrity_method == "hmac-sha256" and not self.signing_key:
+            return False
+        if self.require_signing and receipt.integrity_method != "hmac-sha256":
+            return False
+
+        try:
+            expected = self.calculate_integrity_tag(
+                unsigned,
+                method=receipt.integrity_method,
+                signing_key=self.signing_key,
+            )
+        except ValueError:
+            return False
         return hmac.compare_digest(expected, receipt.integrity_tag)
 
     @staticmethod
-    def calculate_integrity_tag(unsigned: Mapping[str, Any]) -> str:
+    def calculate_integrity_tag(
+        unsigned: Mapping[str, Any],
+        *,
+        method: str,
+        signing_key: bytes | None = None,
+    ) -> str:
         canonical = json.dumps(
             dict(unsigned), sort_keys=True, separators=(",", ":")
-        )
-        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        ).encode("utf-8")
+
+        if method == "sha256":
+            return hashlib.sha256(canonical).hexdigest()
+        if method == "hmac-sha256":
+            if not signing_key:
+                raise ValueError("signing_key is required for hmac-sha256")
+            return hmac.new(signing_key, canonical, hashlib.sha256).hexdigest()
+        raise ValueError("unsupported integrity method")
