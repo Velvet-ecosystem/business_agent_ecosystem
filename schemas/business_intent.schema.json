@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://velvet.local/schemas/business_intent.schema.json",
+  "title": "Velvet Business Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["route", "action", "subject_id", "parameters"],
+  "properties": {
+    "route": {"type": "string", "minLength": 1},
+    "action": {"type": "string", "minLength": 1},
+    "subject_id": {"type": "string", "minLength": 1},
+    "parameters": {"type": "object"}
+  }
+}
