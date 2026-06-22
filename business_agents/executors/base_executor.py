@@ -17,6 +17,12 @@ class BaseExecutor(ABC):
         return intent.route == self.route and intent.action in self.allowed_actions
 
     @abstractmethod
-    def execute(self, intent: BusinessIntent, *, authorization_id: str) -> ExecutorResult:
-        """Execute an already authorized intent and return a receipted result."""
+    def execute(
+        self,
+        intent: BusinessIntent,
+        *,
+        authorization_id: str,
+        authorization_fingerprint: str,
+    ) -> ExecutorResult:
+        """Execute an already authorized, intent-bound request."""
         raise NotImplementedError
