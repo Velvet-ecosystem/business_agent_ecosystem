@@ -46,6 +46,8 @@ class BusinessCoordinator:
             not decision.approved
             or decision.authorization_id is None
             or decision.intent_fingerprint is None
+            or decision.issued_at is None
+            or decision.expires_at is None
         ):
             self.receipt_store.append(
                 actor="Court",
@@ -64,6 +66,13 @@ class BusinessCoordinator:
             )
             raise PermissionError(decision.reason)
 
+        authorization_details = {
+            "authorization_id": decision.authorization_id,
+            "authorization_fingerprint": decision.intent_fingerprint,
+            "authorization_issued_at": decision.issued_at,
+            "authorization_expires_at": decision.expires_at,
+        }
+
         try:
             executor = self.executor_registry.resolve(proposal.intent)
         except LookupError as exc:
@@ -76,8 +85,7 @@ class BusinessCoordinator:
                     "reason": "executor-not-available",
                     "route": proposal.intent.route,
                     "action": proposal.intent.action,
-                    "authorization_id": decision.authorization_id,
-                    "authorization_fingerprint": decision.intent_fingerprint,
+                    **authorization_details,
                     "error": str(exc),
                 },
             )
@@ -93,17 +101,18 @@ class BusinessCoordinator:
                 executor=None,
                 subject_id=proposal.intent.subject_id,
                 details={
-                    "reason": "authorization-invalid",
+                    "reason": "authorization-invalid-or-expired",
                     "route": proposal.intent.route,
                     "action": proposal.intent.action,
-                    "authorization_id": decision.authorization_id,
-                    "authorization_fingerprint": decision.intent_fingerprint,
+                    **authorization_details,
                 },
             )
-            raise PermissionError("authorization-invalid")
+            raise PermissionError("authorization-invalid-or-expired")
 
         return executor.execute(
             proposal.intent,
             authorization_id=decision.authorization_id,
             authorization_fingerprint=decision.intent_fingerprint,
+            authorization_issued_at=decision.issued_at,
+            authorization_expires_at=decision.expires_at,
         )

@@ -23,6 +23,8 @@ class BaseExecutor(ABC):
         *,
         authorization_id: str,
         authorization_fingerprint: str,
+        authorization_issued_at: float,
+        authorization_expires_at: float,
     ) -> ExecutorResult:
         """Execute an already authorized, intent-bound request."""
         raise NotImplementedError
