@@ -33,25 +33,32 @@ class NoteExecutor(BaseExecutor):
         *,
         authorization_id: str,
         authorization_fingerprint: str,
+        authorization_issued_at: float,
+        authorization_expires_at: float,
     ) -> ExecutorResult:
         if not authorization_id.strip():
             raise ValueError("authorization_id is required")
         if not authorization_fingerprint.strip():
             raise ValueError("authorization_fingerprint is required")
+        if authorization_expires_at <= authorization_issued_at:
+            raise ValueError("authorization lifetime is invalid")
         if not self.supports(intent):
             raise ValueError("unsupported intent")
 
         title = str(intent.parameters["title"]).strip()
         body = str(intent.parameters["body"]).strip()
+        auth_metadata = {
+            "authorization_id": authorization_id,
+            "authorization_fingerprint": authorization_fingerprint,
+            "authorization_issued_at": authorization_issued_at,
+            "authorization_expires_at": authorization_expires_at,
+        }
         note = InternalNote(
             note_id=f"note_{len(self.notes) + 1:04d}",
             title=title,
             body=body,
             subject_id=intent.subject_id,
-            metadata={
-                "authorization_id": authorization_id,
-                "authorization_fingerprint": authorization_fingerprint,
-            },
+            metadata=auth_metadata,
         )
 
         receipt = self.receipt_store.append(
@@ -60,8 +67,7 @@ class NoteExecutor(BaseExecutor):
             executor="Note Executor",
             subject_id=intent.subject_id,
             details={
-                "authorization_id": authorization_id,
-                "authorization_fingerprint": authorization_fingerprint,
+                **auth_metadata,
                 "route": intent.route,
                 "action": intent.action,
                 "note_id": note.note_id,
