@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from business_agents.agents.inventory_agent import InventoryAgent
+from business_agents.contracts import BusinessIntent
 from business_agents.executors.task_executor import TaskExecutor
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.coordinator import BusinessCoordinator
@@ -71,3 +72,31 @@ def test_safety_gate_rejects_excessive_quantity(tmp_path: Path) -> None:
         )
 
     assert executor.tasks == []
+
+
+def test_safety_gate_rejects_missing_sku() -> None:
+    decision = InternalTaskSafetyGate().evaluate(
+        BusinessIntent(
+            route="internal-task",
+            action="create-restock-review",
+            subject_id="small-workshop",
+            parameters={"suggested_quantity": 12},
+        )
+    )
+
+    assert decision.passed is False
+    assert decision.reason == "invalid-sku"
+
+
+def test_safety_gate_rejects_boolean_quantity() -> None:
+    decision = InternalTaskSafetyGate().evaluate(
+        BusinessIntent(
+            route="internal-task",
+            action="create-restock-review",
+            subject_id="small-workshop",
+            parameters={"sku": "FILTER-001", "suggested_quantity": True},
+        )
+    )
+
+    assert decision.passed is False
+    assert decision.reason == "invalid-quantity"
