@@ -4,6 +4,7 @@ import pytest
 
 from business_agents.agents.inventory_agent import InventoryAgent
 from business_agents.contracts import BusinessIntent
+from business_agents.executors.registry import ExecutorRegistry
 from business_agents.executors.task_executor import TaskExecutor
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.coordinator import BusinessCoordinator
@@ -12,11 +13,13 @@ from business_agents.gateway.safety_gate import InternalTaskSafetyGate
 
 
 def make_coordinator(tmp_path: Path) -> tuple[BusinessCoordinator, TaskExecutor]:
-    executor = TaskExecutor(JsonlReceiptStore(tmp_path / "receipts.jsonl"))
+    receipt_store = JsonlReceiptStore(tmp_path / "receipts.jsonl")
+    executor = TaskExecutor(receipt_store)
     coordinator = BusinessCoordinator(
         court=CourtPolicy(),
         safety_gate=InternalTaskSafetyGate(),
-        task_executor=executor,
+        executor_registry=ExecutorRegistry([executor]),
+        receipt_store=receipt_store,
     )
     return coordinator, executor
 
@@ -89,6 +92,30 @@ def test_safety_gate_rejects_excessive_quantity(tmp_path: Path) -> None:
     assert len(receipts) == 1
     assert receipts[0].decision == "denied"
     assert receipts[0].details["safety_reason"] == "quantity-exceeds-limit"
+
+
+def test_missing_executor_is_denied_and_receipted(tmp_path: Path) -> None:
+    receipt_store = JsonlReceiptStore(tmp_path / "receipts.jsonl")
+    coordinator = BusinessCoordinator(
+        court=CourtPolicy(),
+        safety_gate=InternalTaskSafetyGate(),
+        executor_registry=ExecutorRegistry(),
+        receipt_store=receipt_store,
+    )
+
+    with pytest.raises(PermissionError, match="executor-not-available"):
+        coordinator.run(
+            InventoryAgent(),
+            low_stock_context(),
+            identity_verified=True,
+        )
+
+    receipts = receipt_store.read_all()
+    assert len(receipts) == 1
+    assert receipts[0].actor == "Executor Registry"
+    assert receipts[0].decision == "denied"
+    assert receipts[0].details["reason"] == "executor-not-available"
+    assert receipts[0].details["authorization_id"].startswith("auth:")
 
 
 def test_safety_gate_rejects_missing_sku() -> None:
