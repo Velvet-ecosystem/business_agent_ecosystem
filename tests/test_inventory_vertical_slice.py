@@ -1,0 +1,73 @@
+from pathlib import Path
+
+import pytest
+
+from business_agents.agents.inventory_agent import InventoryAgent
+from business_agents.executors.task_executor import TaskExecutor
+from business_agents.gateway.authority import CourtPolicy
+from business_agents.gateway.coordinator import BusinessCoordinator
+from business_agents.gateway.receipt_store import JsonlReceiptStore
+from business_agents.gateway.safety_gate import InternalTaskSafetyGate
+
+
+def make_coordinator(tmp_path: Path) -> tuple[BusinessCoordinator, TaskExecutor]:
+    executor = TaskExecutor(JsonlReceiptStore(tmp_path / "receipts.jsonl"))
+    coordinator = BusinessCoordinator(
+        court=CourtPolicy(),
+        safety_gate=InternalTaskSafetyGate(),
+        task_executor=executor,
+    )
+    return coordinator, executor
+
+
+def low_stock_context() -> dict[str, object]:
+    return {
+        "sku": "FILTER-001",
+        "location": "small-workshop",
+        "on_hand": 2,
+        "reorder_point": 8,
+        "suggested_quantity": 12,
+    }
+
+
+def test_inventory_agent_creates_internal_task_and_receipt(tmp_path: Path) -> None:
+    coordinator, executor = make_coordinator(tmp_path)
+    result = coordinator.run(
+        InventoryAgent(),
+        low_stock_context(),
+        identity_verified=True,
+    )
+
+    assert result.status == "completed"
+    assert result.receipt_id.startswith("rcpt_")
+    assert len(executor.tasks) == 1
+    assert "FILTER-001" in executor.tasks[0].title
+    assert (tmp_path / "receipts.jsonl").read_text(encoding="utf-8").count("\n") == 1
+
+
+def test_inventory_flow_denies_unverified_identity(tmp_path: Path) -> None:
+    coordinator, executor = make_coordinator(tmp_path)
+
+    with pytest.raises(PermissionError, match="identity-not-verified"):
+        coordinator.run(
+            InventoryAgent(),
+            low_stock_context(),
+            identity_verified=False,
+        )
+
+    assert executor.tasks == []
+
+
+def test_safety_gate_rejects_excessive_quantity(tmp_path: Path) -> None:
+    coordinator, executor = make_coordinator(tmp_path)
+    context = low_stock_context()
+    context["suggested_quantity"] = 101
+
+    with pytest.raises(PermissionError, match="safety-check-failed"):
+        coordinator.run(
+            InventoryAgent(),
+            context,
+            identity_verified=True,
+        )
+
+    assert executor.tasks == []
