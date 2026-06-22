@@ -47,7 +47,14 @@ class TaskExecutor(BaseExecutor):
             decision="completed",
             executor="Task Executor",
             subject_id=intent.subject_id,
-            details={"task_id": task.task_id, "title": task.title},
+            details={
+                "authorization_id": authorization_id,
+                "route": intent.route,
+                "action": intent.action,
+                "parameters": dict(intent.parameters),
+                "task_id": task.task_id,
+                "title": task.title,
+            },
         )
         return ExecutorResult(
             executor_name="Task Executor",
