@@ -12,11 +12,13 @@ from business_agents.gateway.safety_gate import InternalTaskSafetyGate
 
 
 def make_coordinator(tmp_path: Path) -> tuple[BusinessCoordinator, TaskExecutor]:
-    executor = TaskExecutor(JsonlReceiptStore(tmp_path / "receipts.jsonl"))
+    receipt_store = JsonlReceiptStore(tmp_path / "receipts.jsonl")
+    executor = TaskExecutor(receipt_store)
     coordinator = BusinessCoordinator(
         court=CourtPolicy(),
         safety_gate=InternalTaskSafetyGate(),
-        task_executor=executor,
+        executors=[executor],
+        receipt_store=receipt_store,
     )
     return coordinator, executor
 
