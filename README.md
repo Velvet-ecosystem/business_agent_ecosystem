@@ -26,9 +26,30 @@ human and business inputs
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) and [SECURITY.md](SECURITY.md).
 
+## First Working Flow
+
+The first vertical slice turns a low-stock observation into a receipted internal review task:
+
+```text
+inventory context
+  -> Inventory Agent proposal
+  -> internal-task safety gate
+  -> Court identity and policy decision
+  -> Task Executor
+  -> append-only receipt
+```
+
+Run the demonstration with:
+
+```bash
+python -m examples.small_workshop.demo
+```
+
+This flow cannot place an order, contact a vendor, move money, or modify inventory. It creates only an approved internal review task.
+
 ## Status
 
-Early architecture and contract skeleton. Private while the core framework is established.
+Early private architecture and working contract framework.
 
 ## License
 
