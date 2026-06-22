@@ -9,7 +9,7 @@ from business_agents.contracts import ExecutorResult
 from business_agents.executors.registry import ExecutorRegistry
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.receipt_store import JsonlReceiptStore
-from business_agents.gateway.safety_gate import InternalTaskSafetyGate
+from business_agents.gateway.safety_registry import SafetyGate
 
 
 class BusinessCoordinator:
@@ -19,7 +19,7 @@ class BusinessCoordinator:
         self,
         *,
         court: CourtPolicy,
-        safety_gate: InternalTaskSafetyGate,
+        safety_gate: SafetyGate,
         executor_registry: ExecutorRegistry,
         receipt_store: JsonlReceiptStore,
     ) -> None:
