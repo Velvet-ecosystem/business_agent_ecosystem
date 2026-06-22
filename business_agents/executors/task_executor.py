@@ -32,25 +32,31 @@ class TaskExecutor(BaseExecutor):
         *,
         authorization_id: str,
         authorization_fingerprint: str,
+        authorization_issued_at: float,
+        authorization_expires_at: float,
     ) -> ExecutorResult:
         if not authorization_id.strip():
             raise ValueError("authorization_id is required")
         if not authorization_fingerprint.strip():
             raise ValueError("authorization_fingerprint is required")
+        if authorization_expires_at <= authorization_issued_at:
+            raise ValueError("authorization lifetime is invalid")
         if not self.supports(intent):
             raise ValueError("unsupported intent")
 
         sku = str(intent.parameters["sku"])
         quantity = int(intent.parameters["suggested_quantity"])
+        auth_metadata = {
+            "authorization_id": authorization_id,
+            "authorization_fingerprint": authorization_fingerprint,
+            "authorization_issued_at": authorization_issued_at,
+            "authorization_expires_at": authorization_expires_at,
+        }
         task = InternalTask(
             task_id=f"task_{len(self.tasks) + 1:04d}",
             title=f"Review restock request for {sku}, quantity {quantity}",
             subject_id=intent.subject_id,
-            metadata={
-                "authorization_id": authorization_id,
-                "authorization_fingerprint": authorization_fingerprint,
-                **dict(intent.parameters),
-            },
+            metadata={**auth_metadata, **dict(intent.parameters)},
         )
 
         receipt = self.receipt_store.append(
@@ -59,8 +65,7 @@ class TaskExecutor(BaseExecutor):
             executor="Task Executor",
             subject_id=intent.subject_id,
             details={
-                "authorization_id": authorization_id,
-                "authorization_fingerprint": authorization_fingerprint,
+                **auth_metadata,
                 "route": intent.route,
                 "action": intent.action,
                 "parameters": dict(intent.parameters),
