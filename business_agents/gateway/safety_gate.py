@@ -24,8 +24,12 @@ class InternalTaskSafetyGate:
         if intent.action != "create-restock-review":
             return SafetyDecision(False, "unsupported-action")
 
+        sku = intent.parameters.get("sku")
+        if not isinstance(sku, str) or not sku.strip():
+            return SafetyDecision(False, "invalid-sku")
+
         quantity = intent.parameters.get("suggested_quantity")
-        if not isinstance(quantity, int) or quantity <= 0:
+        if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
             return SafetyDecision(False, "invalid-quantity")
         if quantity > self.MAX_QUANTITY:
             return SafetyDecision(False, "quantity-exceeds-limit")
