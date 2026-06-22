@@ -43,7 +43,14 @@ def test_inventory_agent_creates_internal_task_and_receipt(tmp_path: Path) -> No
     assert result.receipt_id.startswith("rcpt_")
     assert len(executor.tasks) == 1
     assert "FILTER-001" in executor.tasks[0].title
-    assert (tmp_path / "receipts.jsonl").read_text(encoding="utf-8").count("\n") == 1
+
+    receipts = executor.receipt_store.read_all()
+    assert len(receipts) == 1
+    assert receipts[0].decision == "completed"
+    assert receipts[0].details["authorization_id"].startswith("auth:")
+    assert receipts[0].details["route"] == "internal-task"
+    assert receipts[0].details["action"] == "create-restock-review"
+    assert executor.receipt_store.verify(receipts[0]) is True
 
 
 def test_inventory_flow_denies_unverified_identity(tmp_path: Path) -> None:
@@ -57,6 +64,12 @@ def test_inventory_flow_denies_unverified_identity(tmp_path: Path) -> None:
         )
 
     assert executor.tasks == []
+    receipts = executor.receipt_store.read_all()
+    assert len(receipts) == 1
+    assert receipts[0].decision == "denied"
+    assert receipts[0].details["reason"] == "identity-not-verified"
+    assert receipts[0].details["identity_verified"] is False
+    assert executor.receipt_store.verify(receipts[0]) is True
 
 
 def test_safety_gate_rejects_excessive_quantity(tmp_path: Path) -> None:
@@ -72,6 +85,10 @@ def test_safety_gate_rejects_excessive_quantity(tmp_path: Path) -> None:
         )
 
     assert executor.tasks == []
+    receipts = executor.receipt_store.read_all()
+    assert len(receipts) == 1
+    assert receipts[0].decision == "denied"
+    assert receipts[0].details["safety_reason"] == "quantity-exceeds-limit"
 
 
 def test_safety_gate_rejects_missing_sku() -> None:

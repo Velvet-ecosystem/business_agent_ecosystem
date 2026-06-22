@@ -40,6 +40,21 @@ class BusinessCoordinator:
             safety_passed=safety.passed,
         )
         if not decision.approved or decision.authorization_id is None:
+            self.task_executor.receipt_store.append(
+                actor="Court",
+                decision="denied",
+                executor=None,
+                subject_id=proposal.intent.subject_id,
+                details={
+                    "agent_name": proposal.agent_name,
+                    "reason": decision.reason,
+                    "identity_verified": identity_verified,
+                    "safety_passed": safety.passed,
+                    "safety_reason": safety.reason,
+                    "route": proposal.intent.route,
+                    "action": proposal.intent.action,
+                },
+            )
             raise PermissionError(decision.reason)
         return self.task_executor.execute(
             proposal.intent,
