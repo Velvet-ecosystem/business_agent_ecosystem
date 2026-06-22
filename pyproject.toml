@@ -11,6 +11,10 @@ requires-python = ">=3.11"
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
+[tool.setuptools.packages.find]
+include = ["business_agents*"]
+exclude = ["docs*", "examples*", "tests*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
