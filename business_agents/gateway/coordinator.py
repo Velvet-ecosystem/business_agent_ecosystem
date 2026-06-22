@@ -42,7 +42,11 @@ class BusinessCoordinator:
             identity_verified=identity_verified,
             safety_passed=safety.passed,
         )
-        if not decision.approved or decision.authorization_id is None:
+        if (
+            not decision.approved
+            or decision.authorization_id is None
+            or decision.intent_fingerprint is None
+        ):
             self.receipt_store.append(
                 actor="Court",
                 decision="denied",
@@ -73,12 +77,33 @@ class BusinessCoordinator:
                     "route": proposal.intent.route,
                     "action": proposal.intent.action,
                     "authorization_id": decision.authorization_id,
+                    "authorization_fingerprint": decision.intent_fingerprint,
                     "error": str(exc),
                 },
             )
             raise PermissionError("executor-not-available") from exc
 
+        if not self.court.consume_authorization(
+            decision.authorization_id,
+            proposal.intent,
+        ):
+            self.receipt_store.append(
+                actor="Court",
+                decision="denied",
+                executor=None,
+                subject_id=proposal.intent.subject_id,
+                details={
+                    "reason": "authorization-invalid",
+                    "route": proposal.intent.route,
+                    "action": proposal.intent.action,
+                    "authorization_id": decision.authorization_id,
+                    "authorization_fingerprint": decision.intent_fingerprint,
+                },
+            )
+            raise PermissionError("authorization-invalid")
+
         return executor.execute(
             proposal.intent,
             authorization_id=decision.authorization_id,
+            authorization_fingerprint=decision.intent_fingerprint,
         )
