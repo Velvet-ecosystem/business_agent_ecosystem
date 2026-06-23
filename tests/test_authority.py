@@ -1,5 +1,5 @@
 from business_agents.agents.inventory_agent import InventoryAgent
-from business_agents.contracts import BusinessIntent
+from business_agents.contracts import ApprovalMode, BusinessIntent, RiskLevel
 from business_agents.gateway.authority import CourtPolicy, intent_fingerprint
 
 
@@ -41,6 +41,25 @@ def test_authorization_is_bound_to_exact_intent() -> None:
         action=proposal.intent.action,
         subject_id=proposal.intent.subject_id,
         parameters={**dict(proposal.intent.parameters), "suggested_quantity": 13},
+    )
+
+    assert decision.authorization_id is not None
+    assert court.consume_authorization(decision.authorization_id, altered) is False
+
+
+def test_authorization_is_bound_to_risk_and_approval_mode() -> None:
+    court = CourtPolicy()
+    proposal = inventory_proposal()
+    decision = court.evaluate(
+        proposal, identity_verified=True, safety_passed=True
+    )
+    altered = BusinessIntent(
+        route=proposal.intent.route,
+        action=proposal.intent.action,
+        subject_id=proposal.intent.subject_id,
+        parameters=proposal.intent.parameters,
+        risk_level=RiskLevel.HIGH,
+        approval_mode=ApprovalMode.HUMAN,
     )
 
     assert decision.authorization_id is not None
