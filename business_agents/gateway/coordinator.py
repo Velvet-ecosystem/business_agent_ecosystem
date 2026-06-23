@@ -35,13 +35,32 @@ class BusinessCoordinator:
         *,
         identity_verified: bool,
     ) -> ExecutorResult:
+        principal_id = self._optional_context_string(context, "_principal_id")
+        session_id = self._optional_context_string(context, "_principal_session_id")
+        if (principal_id is None) != (session_id is None):
+            raise PermissionError("incomplete-principal-binding")
+
         proposal = agent.propose(context)
         safety = self.safety_gate.evaluate(proposal.intent)
         decision = self.court.evaluate(
             proposal,
             identity_verified=identity_verified,
             safety_passed=safety.passed,
+            principal_id=principal_id,
+            session_id=session_id,
         )
+        principal_details = {
+            "principal_id": principal_id,
+            "principal_session_id": session_id,
+            "principal_display_name": self._optional_context_string(
+                context, "_principal_display_name"
+            ),
+            "principal_role": self._optional_context_string(context, "_principal_role"),
+            "principal_presence_level": self._optional_context_string(
+                context, "_principal_presence_level"
+            ),
+        }
+
         if (
             not decision.approved
             or decision.authorization_id is None
@@ -62,6 +81,7 @@ class BusinessCoordinator:
                     "safety_reason": safety.reason,
                     "route": proposal.intent.route,
                     "action": proposal.intent.action,
+                    **principal_details,
                 },
             )
             raise PermissionError(decision.reason)
@@ -71,7 +91,20 @@ class BusinessCoordinator:
             "authorization_fingerprint": decision.intent_fingerprint,
             "authorization_issued_at": decision.issued_at,
             "authorization_expires_at": decision.expires_at,
+            **principal_details,
         }
+        self.receipt_store.append(
+            actor="Court",
+            decision="authorized",
+            executor=None,
+            subject_id=proposal.intent.subject_id,
+            details={
+                "agent_name": proposal.agent_name,
+                "route": proposal.intent.route,
+                "action": proposal.intent.action,
+                **authorization_details,
+            },
+        )
 
         try:
             executor = self.executor_registry.resolve(proposal.intent)
@@ -94,6 +127,8 @@ class BusinessCoordinator:
         if not self.court.consume_authorization(
             decision.authorization_id,
             proposal.intent,
+            principal_id=principal_id,
+            session_id=session_id,
         ):
             self.receipt_store.append(
                 actor="Court",
@@ -116,3 +151,11 @@ class BusinessCoordinator:
             authorization_issued_at=decision.issued_at,
             authorization_expires_at=decision.expires_at,
         )
+
+    @staticmethod
+    def _optional_context_string(context: Mapping[str, Any], key: str) -> str | None:
+        value = context.get(key)
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
