@@ -86,6 +86,24 @@ intake-review
 
 A job may be cancelled from any non-terminal working state. Completed and cancelled jobs are terminal. Jobs cannot skip lifecycle states, and job creation cannot include quote totals, schedules, signatures, messages, or payment data.
 
+### Internal estimate draft
+
+A job already in `estimating` can produce a durable internal estimate draft:
+
+```text
+estimating job and pricing inputs
+  -> Estimate Agent calculation
+  -> estimate-draft safety gate
+  -> human approval requirement
+  -> Court authorization
+  -> Estimate Executor
+  -> append-only estimate store and receipt
+```
+
+Estimate arithmetic uses decimal values and two-place monetary rounding. The draft records labour, materials, contingency, margin, tax, and total. The safety gate independently verifies the component sum, rejects negative or non-finite values, applies a bounded maximum, and refuses customer-message, quote-send, payment-link, signature, or scheduling fields.
+
+An estimate draft is not a customer quote. It cannot send itself, collect acceptance, alter a contract, schedule work, or take payment.
+
 Run the current workshop demonstrations with:
 
 ```bash
@@ -110,13 +128,15 @@ Use `ChainedReceiptStore` for active business flows. It adds:
 - optional HMAC-SHA256 authenticity
 - local single-writer locking
 
-Use `JsonlJobStore` for the current durable job prototype. It records append-only creation and transition events, then reconstructs the current state. It is intentionally local and simple while the job contract stabilizes.
+Use `JsonlJobStore` for the current durable job prototype. It records append-only creation and transition events, then reconstructs the current state.
+
+Use `JsonlEstimateStore` for immutable internal estimate drafts while the estimate and revision contracts stabilize.
 
 Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Early private architecture with working inventory, customer-intake, and durable job-record contract flows.
+Early private architecture with working inventory, customer-intake, durable job-record, and draft-only estimate contract flows.
 
 ## License
 
