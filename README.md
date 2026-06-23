@@ -26,9 +26,11 @@ human and business inputs
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) and [SECURITY.md](SECURITY.md).
 
-## First Working Flow
+## Working Vertical Slices
 
-The first vertical slice turns a low-stock observation into a receipted internal review task:
+### Inventory review
+
+A low-stock observation becomes a receipted internal review task:
 
 ```text
 inventory context
@@ -39,15 +41,36 @@ inventory context
   -> chained receipt
 ```
 
-Run the demonstration with:
+This flow cannot place an order, contact a vendor, move money, or modify inventory.
+
+### Customer intake review
+
+A customer request becomes a receipted internal review task:
+
+```text
+customer request
+  -> Intake Agent proposal
+  -> internal-task safety gate
+  -> Court identity and policy decision
+  -> Task Executor
+  -> chained receipt
+```
+
+This flow cannot reply to the customer, send a quote, create a booking, sign a contract, or take payment. It captures bounded context and creates an internal task for human review.
+
+Run both demonstrations with:
 
 ```bash
 python -m examples.small_workshop.demo
 ```
 
-The demo now uses `ChainedReceiptStore` by default. Without a signing key it runs in SHA-256 development mode. Set `VELVET_RECEIPT_SIGNING_KEY` to a key of at least 32 bytes to produce HMAC-SHA256 receipts.
+The demo uses `ChainedReceiptStore` by default. Without a signing key it runs in SHA-256 development mode. Set `VELVET_RECEIPT_SIGNING_KEY` to a key of at least 32 bytes to produce HMAC-SHA256 receipts.
 
-This flow cannot place an order, contact a vendor, move money, or modify inventory. It creates only an approved internal review task.
+## Shared Contracts
+
+Business intents declare a risk level and approval mode. High-risk intents cannot request policy-only approval, and critical intents require strong human approval.
+
+Agents may pass bounded context through structured handoffs, but a handoff carries no authority and performs no side effect.
 
 ## Recommended Receipt Store
 
@@ -63,7 +86,7 @@ Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Early private architecture and working contract framework.
+Early private architecture with working inventory and customer-intake contract flows.
 
 ## License
 
