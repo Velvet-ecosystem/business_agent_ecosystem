@@ -58,6 +58,9 @@ class BookingExecutor(BaseExecutor):
 
         idempotency_key = str(intent.parameters["idempotency_key"])
         existing = self.booking_store.get_by_idempotency_key(idempotency_key)
+        if job.status is JobStatus.SCHEDULED and existing is None:
+            raise ValueError("scheduled job cannot create another booking")
+
         created_now = False
         if existing is not None:
             if existing.job_id != job.job_id or existing.preparation_id != preparation.preparation_id:
