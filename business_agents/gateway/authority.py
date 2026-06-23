@@ -46,10 +46,12 @@ class AuthorizationGrant:
     intent_fingerprint: str
     issued_at: float
     expires_at: float
+    principal_id: str | None = None
+    session_id: str | None = None
 
 
 class CourtPolicy:
-    """Issues one-use grants bound to an exact intent and short lifetime."""
+    """Issues one-use grants bound to an exact intent and optional actor session."""
 
     def __init__(
         self,
@@ -69,26 +71,18 @@ class CourtPolicy:
         *,
         identity_verified: bool,
         safety_passed: bool,
+        principal_id: str | None = None,
+        session_id: str | None = None,
     ) -> AuthorizationDecision:
         self.cleanup_expired()
         if not identity_verified:
-            return AuthorizationDecision(
-                False,
-                None,
-                None,
-                None,
-                None,
-                "identity-not-verified",
-            )
+            return AuthorizationDecision(False, None, None, None, None, "identity-not-verified")
         if not safety_passed:
-            return AuthorizationDecision(
-                False,
-                None,
-                None,
-                None,
-                None,
-                "safety-check-failed",
-            )
+            return AuthorizationDecision(False, None, None, None, None, "safety-check-failed")
+        if (principal_id is None) != (session_id is None):
+            return AuthorizationDecision(False, None, None, None, None, "incomplete-principal-binding")
+        if principal_id is not None and (not principal_id.strip() or not session_id.strip()):
+            return AuthorizationDecision(False, None, None, None, None, "invalid-principal-binding")
 
         issued_at = self._clock()
         expires_at = issued_at + self.grant_ttl_seconds
@@ -98,6 +92,8 @@ class CourtPolicy:
             intent_fingerprint=fingerprint,
             issued_at=issued_at,
             expires_at=expires_at,
+            principal_id=principal_id,
+            session_id=session_id,
         )
         return AuthorizationDecision(
             True,
@@ -112,17 +108,26 @@ class CourtPolicy:
         self,
         authorization_id: str,
         intent: BusinessIntent,
+        *,
+        principal_id: str | None = None,
+        session_id: str | None = None,
     ) -> bool:
-        """Consume a grant once, rejecting expiry, replay, or intent mutation."""
+        """Consume once, rejecting expiry, replay, mutation, or actor drift."""
         grant = self._active_grants.pop(authorization_id, None)
         if grant is None:
             return False
         if self._clock() >= grant.expires_at:
             return False
-        return hmac.compare_digest(
-            grant.intent_fingerprint,
-            intent_fingerprint(intent),
-        )
+        if grant.principal_id is not None:
+            if principal_id is None or session_id is None:
+                return False
+            if not hmac.compare_digest(grant.principal_id, principal_id):
+                return False
+            if not hmac.compare_digest(grant.session_id or "", session_id):
+                return False
+        elif principal_id is not None or session_id is not None:
+            return False
+        return hmac.compare_digest(grant.intent_fingerprint, intent_fingerprint(intent))
 
     def cleanup_expired(self) -> int:
         """Remove expired grants and return the number purged."""
