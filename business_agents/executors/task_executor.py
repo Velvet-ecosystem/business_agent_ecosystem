@@ -20,7 +20,7 @@ class InternalTask:
 
 class TaskExecutor(BaseExecutor):
     route = "internal-task"
-    allowed_actions = frozenset({"create-restock-review"})
+    allowed_actions = frozenset({"create-restock-review", "create-intake-review"})
 
     def __init__(self, receipt_store: JsonlReceiptStore) -> None:
         self.receipt_store = receipt_store
@@ -44,8 +44,7 @@ class TaskExecutor(BaseExecutor):
         if not self.supports(intent):
             raise ValueError("unsupported intent")
 
-        sku = str(intent.parameters["sku"])
-        quantity = int(intent.parameters["suggested_quantity"])
+        title = self._build_title(intent)
         auth_metadata = {
             "authorization_id": authorization_id,
             "authorization_fingerprint": authorization_fingerprint,
@@ -54,7 +53,7 @@ class TaskExecutor(BaseExecutor):
         }
         task = InternalTask(
             task_id=f"task_{len(self.tasks) + 1:04d}",
-            title=f"Review restock request for {sku}, quantity {quantity}",
+            title=title,
             subject_id=intent.subject_id,
             metadata={**auth_metadata, **dict(intent.parameters)},
         )
@@ -80,3 +79,16 @@ class TaskExecutor(BaseExecutor):
             receipt_id=receipt.receipt_id,
             output={"task_id": task.task_id, "title": task.title},
         )
+
+    @staticmethod
+    def _build_title(intent: BusinessIntent) -> str:
+        if intent.action == "create-restock-review":
+            sku = str(intent.parameters["sku"])
+            quantity = int(intent.parameters["suggested_quantity"])
+            return f"Review restock request for {sku}, quantity {quantity}"
+        if intent.action == "create-intake-review":
+            customer_name = str(intent.parameters["customer_name"])
+            request = str(intent.parameters["request"]).strip().replace("\n", " ")
+            summary = request if len(request) <= 80 else request[:77].rstrip() + "..."
+            return f"Review customer request from {customer_name}: {summary}"
+        raise ValueError("unsupported intent")
