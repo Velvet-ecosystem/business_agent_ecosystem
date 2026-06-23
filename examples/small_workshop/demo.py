@@ -1,7 +1,8 @@
-"""Run the first Velvet business-agent vertical slice."""
+"""Run the first Velvet business-agent vertical slices."""
 
 from pathlib import Path
 
+from business_agents.agents.intake_agent import IntakeAgent
 from business_agents.agents.inventory_agent import InventoryAgent
 from business_agents.executors.registry import ExecutorRegistry
 from business_agents.executors.task_executor import TaskExecutor
@@ -28,7 +29,7 @@ def main() -> None:
     )
 
     print("Inventory Agent detected low stock")
-    result = coordinator.run(
+    inventory_result = coordinator.run(
         InventoryAgent(),
         {
             "sku": "FILTER-001",
@@ -39,10 +40,25 @@ def main() -> None:
         },
         identity_verified=True,
     )
-    print("Court approved internal task creation")
-    print(f"Task Executor created task: {result.output['title']}")
-    print(f"Receipt written: {result.receipt_id}")
-    print(f"Receipt chain valid: {receipt_store.verify_chain()}")
+    print(f"Task Executor created task: {inventory_result.output['title']}")
+    print(f"Receipt written: {inventory_result.receipt_id}")
+
+    print("\nIntake Agent captured a customer request")
+    intake_result = coordinator.run(
+        IntakeAgent(),
+        {
+            "customer_name": "Alex Morgan",
+            "contact": "alex@example.com",
+            "request": "Install a Velvet system in a 2008 Hyundai Tiburon.",
+            "source": "website-form",
+        },
+        identity_verified=True,
+    )
+    print(f"Task Executor created task: {intake_result.output['title']}")
+    print(f"Receipt written: {intake_result.receipt_id}")
+    print("No message, quote, booking, or payment action was performed.")
+
+    print(f"\nReceipt chain valid: {receipt_store.verify_chain()}")
     print(
         "Receipt integrity: "
         + ("HMAC-SHA256" if signing_key else "SHA-256 development mode")
