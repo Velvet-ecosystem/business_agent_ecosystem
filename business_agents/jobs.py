@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
+
+from business_agents.compatible_storage import CompatibleLockedJsonlFile
 
 
 class JobStatus(str, Enum):
@@ -64,30 +65,31 @@ class JobRecord:
 
 
 class JsonlJobStore:
-    """Append-only JSONL event store that reconstructs current job state."""
+    """Locked append-only event store with legacy-read compatibility."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._storage = CompatibleLockedJsonlFile(path, schema="job-event", version=1)
 
     def create(self, record: JobRecord) -> JobRecord:
-        if self.get(record.job_id) is not None:
-            raise ValueError(f"job already exists: {record.job_id}")
-        self._append("created", record)
+        with self._storage.locked_file.locked():
+            if self._get_unlocked(record.job_id) is not None:
+                raise ValueError(f"job already exists: {record.job_id}")
+            self._append_unlocked("created", record)
         return record
 
     def transition(self, job_id: str, target: JobStatus) -> JobRecord:
-        current = self.require(job_id)
-        updated = current.transition(target)
-        self._append("transitioned", updated)
+        with self._storage.locked_file.locked():
+            current = self._get_unlocked(job_id)
+            if current is None:
+                raise KeyError(f"job not found: {job_id}")
+            updated = current.transition(target)
+            self._append_unlocked("transitioned", updated)
         return updated
 
     def get(self, job_id: str) -> JobRecord | None:
-        current: JobRecord | None = None
-        for event in self._read_events():
-            if event.get("job_id") == job_id:
-                current = self._record_from_event(event)
-        return current
+        with self._storage.locked_file.locked():
+            return self._get_unlocked(job_id)
 
     def require(self, job_id: str) -> JobRecord:
         record = self.get(job_id)
@@ -96,37 +98,35 @@ class JsonlJobStore:
         return record
 
     def list_current(self) -> tuple[JobRecord, ...]:
-        records: dict[str, JobRecord] = {}
-        for event in self._read_events():
-            record = self._record_from_event(event)
-            records[record.job_id] = record
-        return tuple(records[key] for key in sorted(records))
+        with self._storage.locked_file.locked():
+            records: dict[str, JobRecord] = {}
+            for event in self._storage._read_all_unlocked():
+                record = self._record_from_event(event)
+                records[record.job_id] = record
+            return tuple(records[key] for key in sorted(records))
 
-    def _append(self, event_type: str, record: JobRecord) -> None:
+    def _get_unlocked(self, job_id: str) -> JobRecord | None:
+        current: JobRecord | None = None
+        for event in self._storage._read_all_unlocked():
+            if event.get("job_id") == job_id:
+                current = self._record_from_event(event)
+        return current
+
+    def _append_unlocked(self, event_type: str, record: JobRecord) -> None:
         payload = asdict(record)
         payload["status"] = record.status.value
         payload["metadata"] = dict(record.metadata or {})
         payload["event_type"] = event_type
+        envelope = {
+            "_schema": self._storage.schema,
+            "_version": self._storage.version,
+            "data": payload,
+        }
+        import json, os
         with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n")
-
-    def _read_events(self) -> tuple[dict[str, Any], ...]:
-        if not self.path.exists():
-            return ()
-        events: list[dict[str, Any]] = []
-        with self.path.open("r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                try:
-                    event = json.loads(stripped)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"invalid job event at line {line_number}") from exc
-                if not isinstance(event, dict):
-                    raise ValueError(f"invalid job event at line {line_number}")
-                events.append(event)
-        return tuple(events)
+            handle.write(json.dumps(envelope, sort_keys=True, ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
 
     @staticmethod
     def _record_from_event(event: Mapping[str, Any]) -> JobRecord:
