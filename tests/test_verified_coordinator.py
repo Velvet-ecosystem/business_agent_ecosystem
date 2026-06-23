@@ -21,7 +21,7 @@ class Coordinator:
         return ExecutorResult("Demo", "completed", "receipt-1", {"job_id": "JOB-1"})
 
 
-def principal(verified_at: float) -> VerifiedPrincipal:
+def principal() -> VerifiedPrincipal:
     return VerifiedPrincipal(
         principal_id="owner-1",
         display_name="Mister",
@@ -29,15 +29,15 @@ def principal(verified_at: float) -> VerifiedPrincipal:
         authentication_method="local",
         presence_level=PresenceLevel.PHYSICAL,
         session_id="session-1",
-        verified_at=verified_at,
+        verified_at=100.0,
     )
 
 
 def test_fresh_principal_is_bound(monkeypatch) -> None:
     base = Coordinator()
     wrapper = VerifiedBusinessCoordinator(base, max_age_seconds=30)
-    monkeypatch.setattr("business_agents.identity.time.time", lambda: 120.0)
-    wrapper.run(object(), {}, principal=principal(100.0))
+    monkeypatch.setattr(VerifiedPrincipal, "is_fresh", lambda self, max_age_seconds: True)
+    wrapper.run(object(), {}, principal=principal())
     assert base.last_context["_principal_id"] == "owner-1"
     assert base.receipt_store.items[-1]["decision"] == "actor-bound"
 
@@ -45,9 +45,9 @@ def test_fresh_principal_is_bound(monkeypatch) -> None:
 def test_stale_principal_is_rejected(monkeypatch) -> None:
     base = Coordinator()
     wrapper = VerifiedBusinessCoordinator(base, max_age_seconds=30)
-    monkeypatch.setattr("business_agents.identity.time.time", lambda: 140.0)
+    monkeypatch.setattr(VerifiedPrincipal, "is_fresh", lambda self, max_age_seconds: False)
     try:
-        wrapper.run(object(), {}, principal=principal(100.0))
+        wrapper.run(object(), {}, principal=principal())
     except PermissionError as exc:
         assert str(exc) == "identity-stale"
     else:
