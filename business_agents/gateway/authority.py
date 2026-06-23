@@ -21,6 +21,8 @@ def intent_fingerprint(intent: BusinessIntent) -> str:
             "action": intent.action,
             "subject_id": intent.subject_id,
             "parameters": dict(intent.parameters),
+            "risk_level": intent.risk_level.value,
+            "approval_mode": intent.approval_mode.value,
         },
         sort_keys=True,
         separators=(",", ":"),
