@@ -58,7 +58,35 @@ customer request
 
 This flow cannot reply to the customer, send a quote, create a booking, sign a contract, or take payment. It captures bounded context and creates an internal task for human review.
 
-Run both demonstrations with:
+### Durable job record
+
+An approved intake review can become a durable internal job record:
+
+```text
+approved intake context
+  -> Job Agent proposal
+  -> job-record safety gate
+  -> human approval requirement
+  -> Court authorization
+  -> Job Executor
+  -> append-only job store and receipt
+```
+
+New jobs begin in `intake-review`. Their lifecycle is explicit:
+
+```text
+intake-review
+  -> approved
+  -> estimating
+  -> ready-to-schedule
+  -> scheduled
+  -> in-progress
+  -> completed
+```
+
+A job may be cancelled from any non-terminal working state. Completed and cancelled jobs are terminal. Jobs cannot skip lifecycle states, and job creation cannot include quote totals, schedules, signatures, messages, or payment data.
+
+Run the current workshop demonstrations with:
 
 ```bash
 python -m examples.small_workshop.demo
@@ -72,7 +100,7 @@ Business intents declare a risk level and approval mode. High-risk intents canno
 
 Agents may pass bounded context through structured handoffs, but a handoff carries no authority and performs no side effect.
 
-## Recommended Receipt Store
+## Recommended Stores
 
 Use `ChainedReceiptStore` for active business flows. It adds:
 
@@ -82,11 +110,13 @@ Use `ChainedReceiptStore` for active business flows. It adds:
 - optional HMAC-SHA256 authenticity
 - local single-writer locking
 
+Use `JsonlJobStore` for the current durable job prototype. It records append-only creation and transition events, then reconstructs the current state. It is intentionally local and simple while the job contract stabilizes.
+
 Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Early private architecture with working inventory and customer-intake contract flows.
+Early private architecture with working inventory, customer-intake, and durable job-record contract flows.
 
 ## License
 
