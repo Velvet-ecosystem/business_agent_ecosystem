@@ -56,27 +56,32 @@ A job may be cancelled from any non-terminal working state. Completed and cancel
 
 ### Authority-gated job transitions
 
-Job state changes now travel through a dedicated proposal, safety, authorization, execution, and receipt path:
+Job state changes travel through a dedicated proposal, safety, authorization, execution, and receipt path. Normal working-state transitions are medium risk and require human approval. Moving a job to `completed` or `cancelled` is high risk and requires strong human approval.
 
-```text
-current durable job state
-  -> Job Transition Agent
-  -> job-transition safety gate
-  -> human approval ceremony
-  -> Court authorization
-  -> Job Transition Executor
-  -> append-only job event and receipt
-```
-
-Normal working-state transitions are medium risk and require human approval. Moving a job to `completed` or `cancelled` is high risk and requires strong human approval. The safety gate rejects skipped states and unexpected fields. The executor re-reads the durable job immediately before mutation and rejects stale authorizations if the stored state no longer matches the state declared in the proposal.
-
-Direct calls to the job store remain a low-level persistence mechanism for tests and bootstrap code. Business flows should use the authority-gated transition path.
+The executor re-reads durable state immediately before mutation and rejects stale authorizations when the stored state no longer matches the state declared in the proposal.
 
 ### Internal estimate draft
 
 A job already in `estimating` can produce a durable internal estimate draft. Estimate arithmetic uses decimal values and two-place monetary rounding. The safety gate independently verifies component totals and rejects customer-facing or transactional fields.
 
 An estimate draft is not a customer quote. It cannot send itself, collect acceptance, alter a contract, schedule work, or take payment.
+
+### Estimate-backed readiness
+
+Moving a job from `estimating` to `ready-to-schedule` now requires a stored estimate draft for that exact job:
+
+```text
+estimating job + estimate reference
+  -> Estimate Readiness Agent
+  -> estimate-readiness safety gate
+  -> human approval
+  -> Court authorization
+  -> executor re-reads job and estimate stores
+  -> exact job/estimate binding check
+  -> ready-to-schedule transition and receipt
+```
+
+The transition fails if the estimate is missing, belongs to another job, or the job state changed after authorization. The estimate remains an internal draft; readiness does not send a quote, book work, or claim customer acceptance.
 
 Run the current workshop demonstrations with:
 
@@ -104,7 +109,7 @@ Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Early private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, and draft-only estimate contract flows.
+Early private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, and estimate-backed readiness flows.
 
 ## License
 
