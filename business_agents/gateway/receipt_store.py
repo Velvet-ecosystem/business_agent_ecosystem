@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any, Mapping
 from uuid import uuid4
 
+from business_agents.compatible_storage import CompatibleLockedJsonlFile
+
 
 @dataclass(frozen=True)
 class Receipt:
@@ -26,7 +28,7 @@ class Receipt:
 
 
 class JsonlReceiptStore:
-    """Writes receipts as one canonical JSON object per line."""
+    """Locked append-only receipt store with legacy-read compatibility."""
 
     def __init__(
         self,
@@ -40,6 +42,7 @@ class JsonlReceiptStore:
         self.path = Path(path)
         self.signing_key = signing_key
         self.require_signing = require_signing
+        self._storage = CompatibleLockedJsonlFile(self.path, schema="business-receipt")
 
     def append(
         self,
@@ -72,27 +75,16 @@ class JsonlReceiptStore:
             integrity_tag=integrity_tag,
             integrity_method=integrity_method,
         )
-
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(asdict(receipt), sort_keys=True) + "\n")
+        self._storage.append(asdict(receipt))
         return receipt
 
     def read_all(self) -> list[Receipt]:
         """Read all stored receipts in append order."""
-        if not self.path.exists():
-            return []
-
         receipts: list[Receipt] = []
-        for line_number, line in enumerate(
-            self.path.read_text(encoding="utf-8").splitlines(), start=1
-        ):
-            if not line.strip():
-                continue
+        for line_number, data in enumerate(self._storage.read_all(), start=1):
             try:
-                data = json.loads(line)
                 receipts.append(Receipt(**data))
-            except (json.JSONDecodeError, TypeError) as exc:
+            except TypeError as exc:
                 raise ValueError(f"invalid receipt at line {line_number}") from exc
         return receipts
 
@@ -107,12 +99,10 @@ class JsonlReceiptStore:
             "subject_id": receipt.subject_id,
             "details": dict(receipt.details),
         }
-
         if receipt.integrity_method == "hmac-sha256" and not self.signing_key:
             return False
         if self.require_signing and receipt.integrity_method != "hmac-sha256":
             return False
-
         try:
             expected = self.calculate_integrity_tag(
                 unsigned,
@@ -133,7 +123,6 @@ class JsonlReceiptStore:
         canonical = json.dumps(
             dict(unsigned), sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
-
         if method == "sha256":
             return hashlib.sha256(canonical).hexdigest()
         if method == "hmac-sha256":
