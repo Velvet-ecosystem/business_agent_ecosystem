@@ -31,4 +31,11 @@ jobs:
         run: python -m pip install -e .[dev]
 
       - name: Run tests
-        run: python -m pytest -q
+        run: python scripts/ci_pytest_report.py
+
+      - name: Upload pytest diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-diagnostic-${{ matrix.python-version }}
+          path: pytest-diagnostic.txt
