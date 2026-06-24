@@ -74,13 +74,16 @@ class JsonlEstimateStore:
             "margin_amount", "tax_amount", "total",
         ):
             payload[key] = str(payload[key])
-        payload["metadata"] = dict(draft.metadata or {})
+        payload["metadata"] = (
+            dict(draft.metadata) if draft.metadata is not None else None
+        )
         self._storage.append_unique(payload, field="estimate_id")
         return draft
 
     def get(self, estimate_id: str) -> EstimateDraft | None:
         for payload in reversed(self._storage.read_all()):
             if payload.get("estimate_id") == estimate_id:
+                raw_metadata = payload.get("metadata")
                 return EstimateDraft(
                     estimate_id=str(payload["estimate_id"]),
                     job_id=str(payload["job_id"]),
@@ -92,6 +95,8 @@ class JsonlEstimateStore:
                     tax_amount=money(payload["tax_amount"]),
                     total=money(payload["total"]),
                     notes=str(payload.get("notes", "")),
-                    metadata=dict(payload.get("metadata", {})),
+                    metadata=(
+                        dict(raw_metadata) if raw_metadata is not None else None
+                    ),
                 )
         return None
