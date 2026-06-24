@@ -6,10 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from business_agents.booking_records import JsonlBookingStore
-from business_agents.bookings import JsonlBookingPreparationStore
 from business_agents.calendar_adapter import CalendarAdapter, InMemoryCalendarAdapter
 from business_agents.delivery_adapter import DeliveryAdapter, InMemoryDeliveryAdapter
-from business_agents.delivery_records import JsonlDeliveryStore
 from business_agents.estimates import JsonlEstimateStore
 from business_agents.executors.booking_executor import BookingExecutor
 from business_agents.executors.booking_preparation_executor import BookingPreparationExecutor
@@ -37,9 +35,13 @@ from business_agents.gateway.safety_registry import SafetyGateRegistry
 from business_agents.gateway.schedule_proposal_safety_gate import ScheduleProposalSafetyGate
 from business_agents.gateway.work_start_safety_gate import WorkStartSafetyGate
 from business_agents.jobs import JsonlJobStore
-from business_agents.notifications import JsonlNotificationDraftStore
+from business_agents.locked_artifact_stores import (
+    LockedBookingPreparationStore as JsonlBookingPreparationStore,
+    LockedDeliveryStore as JsonlDeliveryStore,
+    LockedNotificationDraftStore as JsonlNotificationDraftStore,
+    LockedWorkStartStore as JsonlWorkStartStore,
+)
 from business_agents.schedules import JsonlScheduleStore
-from business_agents.work_start import JsonlWorkStartStore
 
 
 @dataclass(frozen=True)
