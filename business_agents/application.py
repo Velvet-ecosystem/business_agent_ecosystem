@@ -20,6 +20,7 @@ from business_agents.executors.notification_draft_executor import NotificationDr
 from business_agents.executors.registry import ExecutorRegistry
 from business_agents.executors.schedule_proposal_executor import ScheduleProposalExecutor
 from business_agents.executors.work_start_executor import WorkStartExecutor
+from business_agents.external_operations import ExternalOperationJournal
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.booking_preparation_safety_gate import BookingPreparationSafetyGate
 from business_agents.gateway.booking_safety_gate import BookingSafetyGate
@@ -55,6 +56,7 @@ class ApplicationStores:
     notification_drafts: JsonlNotificationDraftStore
     deliveries: JsonlDeliveryStore
     work_starts: JsonlWorkStartStore
+    external_operations: ExternalOperationJournal
 
 
 @dataclass(frozen=True)
@@ -87,6 +89,7 @@ def build_application(
         notification_drafts=JsonlNotificationDraftStore(data_dir / "notification_drafts.jsonl"),
         deliveries=JsonlDeliveryStore(data_dir / "deliveries.jsonl"),
         work_starts=JsonlWorkStartStore(data_dir / "work_starts.jsonl"),
+        external_operations=ExternalOperationJournal(data_dir / "external_operations.jsonl"),
     )
 
     calendar = calendar_adapter or InMemoryCalendarAdapter()
@@ -126,6 +129,7 @@ def build_application(
                 stores.bookings,
                 calendar,
                 stores.receipts,
+                stores.external_operations,
             ),
             NotificationDraftExecutor(
                 stores.jobs,
@@ -139,6 +143,7 @@ def build_application(
                 stores.deliveries,
                 delivery,
                 stores.receipts,
+                stores.external_operations,
             ),
             WorkStartExecutor(
                 stores.jobs,
