@@ -50,7 +50,7 @@ def test_invalid_jsonl_line_fails_closed(tmp_path: Path) -> None:
     path.write_text('{"broken": true}\nnot-json\n', encoding="utf-8")
     store = JsonlReceiptStore(path)
 
-    with pytest.raises(ValueError, match="invalid receipt at line 1"):
+    with pytest.raises(ValueError, match=r"invalid JSONL at .*:2"):
         store.read_all()
 
 
