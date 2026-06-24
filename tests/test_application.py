@@ -5,6 +5,12 @@ from pathlib import Path
 from business_agents.application import build_application
 from business_agents.calendar_adapter import InMemoryCalendarAdapter
 from business_agents.delivery_adapter import InMemoryDeliveryAdapter
+from business_agents.locked_artifact_stores import (
+    LockedBookingPreparationStore,
+    LockedDeliveryStore,
+    LockedNotificationDraftStore,
+    LockedWorkStartStore,
+)
 
 
 def test_application_builds_matching_route_registries(tmp_path: Path) -> None:
@@ -56,3 +62,12 @@ def test_application_accepts_explicit_provider_adapters(tmp_path: Path) -> None:
 
     assert application.calendar_adapter is calendar
     assert application.delivery_adapter is delivery
+
+
+def test_application_uses_locked_artifact_stores(tmp_path: Path) -> None:
+    stores = build_application(tmp_path).stores
+
+    assert isinstance(stores.preparations, LockedBookingPreparationStore)
+    assert isinstance(stores.notification_drafts, LockedNotificationDraftStore)
+    assert isinstance(stores.deliveries, LockedDeliveryStore)
+    assert isinstance(stores.work_starts, LockedWorkStartStore)
