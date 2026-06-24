@@ -12,10 +12,10 @@ It records:
 - session ID
 - verification time
 
-`PrincipalBusinessCoordinator` requires a verified principal and enriches agent context with reserved principal fields.
+`PrincipalBusinessCoordinator` now requires an explicit `VerifiedPrincipal` for every public execution. The synthetic `identity_verified=True` compatibility bridge and legacy principal factory have been removed.
 
-The old `identity_verified=True` path remains available only through an explicitly marked legacy principal. It is a compatibility bridge, not a production authentication mechanism.
+The low-level `BusinessCoordinator` still receives a boolean internally after a principal-aware wrapper has enriched the context. That boolean is an implementation detail for existing slices, not a public authentication contract.
 
-Production callers should pass a real `VerifiedPrincipal` created by the local identity ceremony.
+Production callers must pass a real `VerifiedPrincipal` created by the local identity ceremony.
 
-The next migration step is to bind Court grants and successful executor receipts directly to the principal and session, then remove caller-supplied actor names from work-start and other high-risk intents.
+Court grants bind to the exact intent, principal ID, and session ID. High-risk agents derive actor identity from the verified principal rather than caller-supplied text.
