@@ -80,7 +80,7 @@ def test_chain_detects_link_tampering(tmp_path: Path) -> None:
 
     lines = path.read_text(encoding="utf-8").splitlines()
     second = json.loads(lines[1])
-    second["details"]["_previous_integrity_tag"] = "wrong"
+    second["data"]["details"]["_previous_integrity_tag"] = "wrong"
     lines[1] = json.dumps(second, sort_keys=True)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
