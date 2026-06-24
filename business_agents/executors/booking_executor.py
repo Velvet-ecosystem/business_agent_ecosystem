@@ -7,6 +7,7 @@ from business_agents.bookings import JsonlBookingPreparationStore
 from business_agents.calendar_adapter import CalendarAdapter, CalendarEventRequest
 from business_agents.contracts import BusinessIntent, ExecutorResult
 from business_agents.executors.base_executor import BaseExecutor
+from business_agents.external_operations import ExternalOperationJournal
 from business_agents.gateway.receipt_store import JsonlReceiptStore
 from business_agents.jobs import JobStatus, JsonlJobStore
 
@@ -22,12 +23,14 @@ class BookingExecutor(BaseExecutor):
         booking_store: JsonlBookingStore,
         calendar_adapter: CalendarAdapter,
         receipt_store: JsonlReceiptStore,
+        operation_journal: ExternalOperationJournal | None = None,
     ) -> None:
         self.job_store = job_store
         self.preparation_store = preparation_store
         self.booking_store = booking_store
         self.calendar_adapter = calendar_adapter
         self.receipt_store = receipt_store
+        self.operation_journal = operation_journal
 
     def execute(
         self,
@@ -57,6 +60,16 @@ class BookingExecutor(BaseExecutor):
             raise ValueError("booking preparation belongs to a different job")
 
         idempotency_key = str(intent.parameters["idempotency_key"])
+        operation_id = f"calendar:{idempotency_key}"
+        if self.operation_journal is not None:
+            self.operation_journal.prepare(
+                operation_id=operation_id,
+                provider="calendar",
+                subject_id=job.job_id,
+                idempotency_key=idempotency_key,
+                metadata={"preparation_id": preparation.preparation_id},
+            )
+
         existing = self.booking_store.get_by_idempotency_key(idempotency_key)
         if job.status is JobStatus.SCHEDULED and existing is None:
             raise ValueError("scheduled job cannot create another booking")
@@ -77,6 +90,11 @@ class BookingExecutor(BaseExecutor):
                     description=str(intent.parameters.get("description", "")),
                 )
             )
+            if self.operation_journal is not None:
+                self.operation_journal.provider_confirmed(
+                    operation_id,
+                    external_id=event.event_id,
+                )
             record = BookingRecord(
                 booking_id=str(intent.parameters["booking_id"]),
                 job_id=job.job_id,
@@ -88,7 +106,24 @@ class BookingExecutor(BaseExecutor):
                 timezone=preparation.timezone,
             )
             self.booking_store.create(record)
+            if self.operation_journal is not None:
+                self.operation_journal.locally_recorded(
+                    operation_id,
+                    local_record_id=record.booking_id,
+                )
             created_now = event.created
+
+        if existing is not None and self.operation_journal is not None:
+            current = self.operation_journal.get(operation_id)
+            if current is not None and current.external_id is None:
+                self.operation_journal.provider_confirmed(
+                    operation_id,
+                    external_id=record.event_id,
+                )
+            self.operation_journal.locally_recorded(
+                operation_id,
+                local_record_id=record.booking_id,
+            )
 
         if job.status is JobStatus.READY_TO_SCHEDULE:
             updated = self.job_store.transition(job.job_id, JobStatus.SCHEDULED)
@@ -113,6 +148,7 @@ class BookingExecutor(BaseExecutor):
                 "timezone": record.timezone,
                 "calendar_event_created_now": created_now,
                 "job_status": updated.status.value,
+                "operation_id": operation_id,
                 "authorization_id": authorization_id,
                 "authorization_fingerprint": authorization_fingerprint,
                 "authorization_issued_at": authorization_issued_at,
@@ -130,5 +166,6 @@ class BookingExecutor(BaseExecutor):
                 "idempotency_key": record.idempotency_key,
                 "calendar_event_created_now": created_now,
                 "job_status": updated.status.value,
+                "operation_id": operation_id,
             },
         )
