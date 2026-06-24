@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
+
+from business_agents.compatible_storage import CompatibleLockedJsonlFile
 
 
 @dataclass(frozen=True)
@@ -41,51 +42,37 @@ class ScheduleProposal:
 
 
 class JsonlScheduleStore:
-    """Append-only store for internal schedule proposals."""
+    """Locked append-only schedule proposal store with legacy compatibility."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._storage = CompatibleLockedJsonlFile(path, schema="schedule-proposal")
 
     def create(self, proposal: ScheduleProposal) -> ScheduleProposal:
-        if self.get(proposal.proposal_id) is not None:
-            raise ValueError(f"schedule proposal already exists: {proposal.proposal_id}")
         payload = asdict(proposal)
         payload["windows"] = [
             {"start": window.start.isoformat(), "end": window.end.isoformat()}
             for window in proposal.windows
         ]
         payload["metadata"] = dict(proposal.metadata or {})
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n")
+        self._storage.append_unique(payload, field="proposal_id")
         return proposal
 
     def get(self, proposal_id: str) -> ScheduleProposal | None:
-        if not self.path.exists():
-            return None
-        found: ScheduleProposal | None = None
-        with self.path.open("r", encoding="utf-8") as handle:
-            for line_number, line in enumerate(handle, start=1):
-                stripped = line.strip()
-                if not stripped:
-                    continue
-                try:
-                    payload = json.loads(stripped)
-                except json.JSONDecodeError as exc:
-                    raise ValueError(f"invalid schedule proposal at line {line_number}") from exc
-                if payload.get("proposal_id") == proposal_id:
-                    found = ScheduleProposal(
-                        proposal_id=str(payload["proposal_id"]),
-                        job_id=str(payload["job_id"]),
-                        timezone=str(payload["timezone"]),
-                        windows=tuple(
-                            ScheduleWindow(
-                                start=datetime.fromisoformat(str(item["start"])),
-                                end=datetime.fromisoformat(str(item["end"])),
-                            )
-                            for item in payload["windows"]
-                        ),
-                        notes=str(payload.get("notes", "")),
-                        metadata=dict(payload.get("metadata", {})),
-                    )
-        return found
+        for payload in reversed(self._storage.read_all()):
+            if payload.get("proposal_id") == proposal_id:
+                return ScheduleProposal(
+                    proposal_id=str(payload["proposal_id"]),
+                    job_id=str(payload["job_id"]),
+                    timezone=str(payload["timezone"]),
+                    windows=tuple(
+                        ScheduleWindow(
+                            start=datetime.fromisoformat(str(item["start"])),
+                            end=datetime.fromisoformat(str(item["end"])),
+                        )
+                        for item in payload["windows"]
+                    ),
+                    notes=str(payload.get("notes", "")),
+                    metadata=dict(payload.get("metadata", {})),
+                )
+        return None
