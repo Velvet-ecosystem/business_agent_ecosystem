@@ -22,13 +22,16 @@ class LockedBookingPreparationStore:
         payload = asdict(record)
         payload["start"] = record.start.isoformat()
         payload["end"] = record.end.isoformat()
-        payload["metadata"] = dict(record.metadata or {})
+        payload["metadata"] = (
+            dict(record.metadata) if record.metadata is not None else None
+        )
         self._storage.append_unique(payload, field="preparation_id")
         return record
 
     def get(self, preparation_id: str) -> BookingPreparation | None:
         for payload in reversed(self._storage.read_all()):
             if payload.get("preparation_id") == preparation_id:
+                raw_metadata = payload.get("metadata")
                 return BookingPreparation(
                     preparation_id=str(payload["preparation_id"]),
                     proposal_id=str(payload["proposal_id"]),
@@ -38,7 +41,9 @@ class LockedBookingPreparationStore:
                     end=datetime.fromisoformat(str(payload["end"])),
                     timezone=str(payload["timezone"]),
                     notes=str(payload.get("notes", "")),
-                    metadata=dict(payload.get("metadata", {})),
+                    metadata=(
+                        dict(raw_metadata) if raw_metadata is not None else None
+                    ),
                 )
         return None
 
