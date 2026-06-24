@@ -131,7 +131,7 @@ def test_estimate_store_rejects_duplicate_id(tmp_path: Path) -> None:
     )
     store.create(draft)
 
-    with pytest.raises(ValueError, match="estimate already exists"):
+    with pytest.raises(ValueError, match="record already exists for estimate_id"):
         store.create(draft)
 
 
