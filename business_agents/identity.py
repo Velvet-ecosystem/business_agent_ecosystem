@@ -37,7 +37,12 @@ class VerifiedPrincipal:
         if self.verified_at <= 0:
             raise ValueError("verified_at must be positive")
 
-    def is_fresh(self, *, max_age_seconds: float, clock: Callable[[], float] = time.time) -> bool:
+    def is_fresh(
+        self,
+        *,
+        max_age_seconds: float,
+        clock: Callable[[], float] = time.time,
+    ) -> bool:
         if max_age_seconds <= 0:
             raise ValueError("max_age_seconds must be positive")
         age = clock() - self.verified_at
@@ -53,17 +58,3 @@ class VerifiedPrincipal:
             "session_id": self.session_id,
             "verified_at": self.verified_at,
         }
-
-
-def legacy_verified_principal(*, clock: Callable[[], float] = time.time) -> VerifiedPrincipal:
-    """Compatibility identity for old boolean callers. Not for production use."""
-
-    return VerifiedPrincipal(
-        principal_id="legacy:boolean-verified",
-        display_name="Legacy Verified Caller",
-        role="legacy-compatibility",
-        authentication_method="legacy-boolean",
-        presence_level=PresenceLevel.REMOTE,
-        session_id="legacy-session",
-        verified_at=clock(),
-    )
