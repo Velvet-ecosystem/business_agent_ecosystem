@@ -54,13 +54,16 @@ class JsonlScheduleStore:
             {"start": window.start.isoformat(), "end": window.end.isoformat()}
             for window in proposal.windows
         ]
-        payload["metadata"] = dict(proposal.metadata or {})
+        payload["metadata"] = (
+            dict(proposal.metadata) if proposal.metadata is not None else None
+        )
         self._storage.append_unique(payload, field="proposal_id")
         return proposal
 
     def get(self, proposal_id: str) -> ScheduleProposal | None:
         for payload in reversed(self._storage.read_all()):
             if payload.get("proposal_id") == proposal_id:
+                raw_metadata = payload.get("metadata")
                 return ScheduleProposal(
                     proposal_id=str(payload["proposal_id"]),
                     job_id=str(payload["job_id"]),
@@ -73,6 +76,8 @@ class JsonlScheduleStore:
                         for item in payload["windows"]
                     ),
                     notes=str(payload.get("notes", "")),
-                    metadata=dict(payload.get("metadata", {})),
+                    metadata=(
+                        dict(raw_metadata) if raw_metadata is not None else None
+                    ),
                 )
         return None
