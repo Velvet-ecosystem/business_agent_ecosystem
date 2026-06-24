@@ -100,11 +100,11 @@ def test_unverified_identity_cannot_create_intake_task(tmp_path: Path) -> None:
         receipt_store=receipt_store,
     )
 
-    result = coordinator.run(
-        IntakeAgent(),
-        valid_context(),
-        identity_verified=False,
-    )
+    with pytest.raises(PermissionError, match="identity-not-verified"):
+        coordinator.run(
+            IntakeAgent(),
+            valid_context(),
+            identity_verified=False,
+        )
 
-    assert result.status == "denied"
     assert executor.tasks == []
