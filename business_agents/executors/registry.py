@@ -24,6 +24,15 @@ class ExecutorRegistry:
             raise ValueError(f"executor route already registered: {route}")
         self._executors[route] = executor
 
+    def replace(self, executor: BaseExecutor) -> None:
+        """Replace one already-registered route explicitly."""
+        route = executor.route.strip()
+        if not route:
+            raise ValueError("executor route is required")
+        if route not in self._executors:
+            raise LookupError(f"executor route is not registered: {route}")
+        self._executors[route] = executor
+
     def resolve(self, intent: BusinessIntent) -> BaseExecutor:
         executor = self._executors.get(intent.route)
         if executor is None:
