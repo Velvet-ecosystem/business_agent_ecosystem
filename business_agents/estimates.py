@@ -74,13 +74,19 @@ class JsonlEstimateStore:
             "margin_amount", "tax_amount", "total",
         ):
             payload[key] = str(payload[key])
-        payload["metadata"] = dict(draft.metadata or {})
-        self._storage.append_unique(payload, field="estimate_id")
+        payload["metadata"] = None if draft.metadata is None else dict(draft.metadata)
+        try:
+            self._storage.append_unique(payload, field="estimate_id")
+        except ValueError as exc:
+            if str(exc).startswith("record already exists for estimate_id:"):
+                raise ValueError(f"estimate already exists: {draft.estimate_id}") from exc
+            raise
         return draft
 
     def get(self, estimate_id: str) -> EstimateDraft | None:
         for payload in reversed(self._storage.read_all()):
             if payload.get("estimate_id") == estimate_id:
+                metadata = payload.get("metadata")
                 return EstimateDraft(
                     estimate_id=str(payload["estimate_id"]),
                     job_id=str(payload["job_id"]),
@@ -92,6 +98,6 @@ class JsonlEstimateStore:
                     tax_amount=money(payload["tax_amount"]),
                     total=money(payload["total"]),
                     notes=str(payload.get("notes", "")),
-                    metadata=dict(payload.get("metadata", {})),
+                    metadata=None if metadata is None else dict(metadata),
                 )
         return None
