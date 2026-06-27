@@ -25,7 +25,6 @@ def valid_context() -> dict[str, str]:
 
 def test_intake_agent_creates_internal_review_proposal() -> None:
     proposal = IntakeAgent().propose(valid_context())
-
     assert proposal.agent_name == "Intake Agent"
     assert proposal.intent.route == "internal-task"
     assert proposal.intent.action == "create-intake-review"
@@ -36,7 +35,6 @@ def test_intake_agent_creates_internal_review_proposal() -> None:
 def test_intake_requires_contact_and_request() -> None:
     context = valid_context()
     context["contact"] = ""
-
     with pytest.raises(ValueError, match="contact is required"):
         IntakeAgent().propose(context)
 
@@ -44,7 +42,6 @@ def test_intake_requires_contact_and_request() -> None:
 def test_intake_request_length_is_bounded() -> None:
     context = valid_context()
     context["request"] = "x" * 2001
-
     with pytest.raises(ValueError, match="request is too long"):
         IntakeAgent().propose(context)
 
@@ -54,14 +51,9 @@ def test_safety_gate_rejects_external_action_fields() -> None:
         route="internal-task",
         action="create-intake-review",
         subject_id="lead:alex",
-        parameters={
-            **valid_context(),
-            "send_message": True,
-        },
+        parameters={**valid_context(), "send_message": True},
     )
-
     decision = InternalTaskSafetyGate().evaluate(intent)
-
     assert decision.passed is False
     assert decision.reason == "external-or-financial-fields-forbidden"
 
@@ -75,13 +67,7 @@ def test_intake_flow_creates_receipted_internal_task(tmp_path: Path) -> None:
         executor_registry=ExecutorRegistry([executor]),
         receipt_store=receipt_store,
     )
-
-    result = coordinator.run(
-        IntakeAgent(),
-        valid_context(),
-        identity_verified=True,
-    )
-
+    result = coordinator.run(IntakeAgent(), valid_context(), identity_verified=True)
     assert result.status == "completed"
     assert result.output["task_id"] == "task_0001"
     assert "Alex Morgan" in result.output["title"]
@@ -99,12 +85,6 @@ def test_unverified_identity_cannot_create_intake_task(tmp_path: Path) -> None:
         executor_registry=ExecutorRegistry([executor]),
         receipt_store=receipt_store,
     )
-
-    result = coordinator.run(
-        IntakeAgent(),
-        valid_context(),
-        identity_verified=False,
-    )
-
-    assert result.status == "denied"
+    with pytest.raises(PermissionError, match="identity-not-verified"):
+        coordinator.run(IntakeAgent(), valid_context(), identity_verified=False)
     assert executor.tasks == []
