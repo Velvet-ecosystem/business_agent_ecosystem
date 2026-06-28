@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from business_agents.agents.job_cost_record_agent import JobCostRecordAgent
+from business_agents.capability_registry import capability_for_identity
 from business_agents.executors.job_reference_executor import JobReferenceExecutor
 from business_agents.gateway.job_evidence_safety_gate import JobEvidenceSafetyGate
 from business_agents.gateway.receipt_store import JsonlReceiptStore
@@ -35,13 +36,21 @@ def run(executor, intent):
 
 
 def test_agent_gate_and_record(tmp_path: Path) -> None:
+    capability = capability_for_identity("job-cost-record", "record-job-cost-reference")
+    assert capability is not None
+
     proposal = JobCostRecordAgent().propose(context())
+    assert (proposal.intent.route, proposal.intent.action) == (capability.route, capability.action)
     assert JobEvidenceSafetyGate().evaluate(proposal.intent).passed is True
+
     executor, records, receipts = build(tmp_path)
     result = run(executor, proposal.intent)
+    receipt = receipts.read_all()[-1]
+
     assert records.get("R-1").job_id == "J-1"
-    assert receipts.read_all()[-1].details["record_id"] == "R-1"
+    assert receipt.details["record_id"] == "R-1"
     assert result.output["record_id"] == "R-1"
+    assert result.receipt_id == receipt.receipt_id
 
 
 def test_duplicate_record_id_fails(tmp_path: Path) -> None:
