@@ -1,1 +1,0 @@
-This proof adds no new amendment authority or business behavior.
