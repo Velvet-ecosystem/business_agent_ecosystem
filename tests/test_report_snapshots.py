@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from business_agents.agents.report_snapshot_agent import ReportSnapshotAgent
+from business_agents.capability_registry import capability_for_identity
 from business_agents.executors.report_snapshot_executor import ReportSnapshotExecutor
 from business_agents.gateway.receipt_store import JsonlReceiptStore
 from business_agents.gateway.report_snapshot_safety_gate import ReportSnapshotSafetyGate
@@ -31,14 +32,22 @@ def run(executor, intent):
 
 
 def test_agent_gate_and_snapshot(tmp_path: Path) -> None:
+    capability = capability_for_identity("report-snapshot", "record-report-snapshot")
+    assert capability is not None
+
     proposal = ReportSnapshotAgent().propose(context())
+    assert (proposal.intent.route, proposal.intent.action) == (capability.route, capability.action)
     assert ReportSnapshotSafetyGate().evaluate(proposal.intent).passed is True
+
     executor, snapshots, receipts = build(tmp_path)
     result = run(executor, proposal.intent)
+    receipt = receipts.read_all()[-1]
+
     assert snapshots.get("REP-1").source_reference == "source-set-1"
-    assert receipts.read_all()[-1].details["source_records_changed"] is False
-    assert receipts.read_all()[-1].details["external_action_taken"] is False
+    assert receipt.details["source_records_changed"] is False
+    assert receipt.details["external_action_taken"] is False
     assert result.output["source_records_changed"] is False
+    assert result.receipt_id == receipt.receipt_id
 
 
 def test_duplicate_report_id_fails(tmp_path: Path) -> None:
