@@ -1,0 +1,1 @@
+The change-order test covers the registered route and action, gate decision, stored amendment, receipt link, and unchanged original job request.
