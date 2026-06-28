@@ -1,0 +1,1 @@
+Capability entries are keyed by route and action together.
