@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from business_agents.agents.invoice_delivery_preparation_agent import InvoiceDeliveryPreparationAgent
 from business_agents.executors.invoice_delivery_preparation_executor import InvoiceDeliveryPreparationExecutor
 from business_agents.gateway.invoice_delivery_preparation_safety_gate import InvoiceDeliveryPreparationSafetyGate
@@ -45,6 +44,8 @@ def test_preparation_is_durable_and_receipted(tmp_path: Path) -> None:
     preparations = InvoiceDeliveryPreparationStore(tmp_path / "preparations.jsonl")
     receipts = JsonlReceiptStore(tmp_path / "receipts.jsonl")
     result = execute(InvoiceDeliveryPreparationExecutor(jobs, finalizations, preparations, receipts), InvoiceDeliveryPreparationAgent().propose(context()).intent)
+    receipt = receipts.read_all()[-1]
     assert preparations.get("PREP-1") is not None
     assert result.output["invoice_id"] == "INV-1"
-    assert receipts.read_all()[-1].details["prepared_by"] == "owner-1"
+    assert receipt.details["prepared_by"] == "owner-1"
+    assert result.receipt_id == receipt.receipt_id
