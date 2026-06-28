@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from business_agents.agents.change_order_agent import ChangeOrderAgent
+from business_agents.capability_registry import capability_for_identity
 from business_agents.change_orders import ChangeOrderStore
 from business_agents.executors.amendment_record_executor import AmendmentRecordExecutor
 from business_agents.gateway.change_order_safety_gate import ChangeOrderSafetyGate
@@ -36,14 +37,22 @@ def run(executor, intent):
 
 
 def test_agent_gate_and_first_version(tmp_path: Path) -> None:
+    capability = capability_for_identity("change-order", "record-change-order")
+    assert capability is not None
+
     proposal = ChangeOrderAgent().propose(context())
+    assert (proposal.intent.route, proposal.intent.action) == (capability.route, capability.action)
     assert ChangeOrderSafetyGate().evaluate(proposal.intent).passed is True
+
     executor, jobs, records, receipts = setup(tmp_path)
     result = run(executor, proposal.intent)
+    receipt = receipts.read_all()[-1]
+
     assert result.output["version"] == 1
+    assert result.receipt_id == receipt.receipt_id
     assert records.latest_for_job("J-1").change_order_id == "CO-1"
     assert jobs.require("J-1").request == "Original work"
-    assert receipts.read_all()[-1].details["record_id"] == "CO-1"
+    assert receipt.details["record_id"] == "CO-1"
 
 
 def test_versions_must_be_sequential(tmp_path: Path) -> None:
