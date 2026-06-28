@@ -1,0 +1,1 @@
+The amendment test now checks the registered capability identity and receipt linkage while preserving the original job request.
