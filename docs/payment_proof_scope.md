@@ -1,0 +1,1 @@
+The payment proof adds registry and receipt assertions only. It does not change reconciliation rules or authority.
