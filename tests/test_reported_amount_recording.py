@@ -53,10 +53,12 @@ def test_partial_then_complete(tmp_path: Path) -> None:
     executor, records, receipts = build_executor(tmp_path)
     first = run(executor, PaymentRecordingAgent().propose(make_context()).intent)
     second = run(executor, PaymentRecordingAgent().propose(make_context("REC-2", "65.00")).intent)
+    receipt = receipts.read_all()[-1]
     assert first.output["state"] == "partial"
     assert second.output["state"] == "complete"
     assert records.total_for_invoice("INV-1") == Decimal("105.00")
-    assert receipts.read_all()[-1].details["remaining"] == "0.00"
+    assert second.receipt_id == receipt.receipt_id
+    assert receipt.details["remaining"] == "0.00"
 
 
 def test_excess_fails_closed(tmp_path: Path) -> None:
