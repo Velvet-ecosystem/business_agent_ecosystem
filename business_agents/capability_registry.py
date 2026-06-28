@@ -13,14 +13,69 @@ class CapabilityDescriptor:
 
 
 CAPABILITIES = (
-    CapabilityDescriptor("invoice-handoff", "strong-human", "invoice_handoff_safety_gate", "invoice_handoff_executor", False),
-    CapabilityDescriptor("payment-reconciliation", "strong-human", "payment_reconciliation_safety_gate", "payment_reconciliation_executor", False),
-    CapabilityDescriptor("customer-account", "strong-human", "customer_account_safety_gate", "customer_account_executor", False),
-    CapabilityDescriptor("change-order", "strong-human", "change_order_safety_gate", "amendment_record_executor", False),
-    CapabilityDescriptor("job-cost-record", "strong-human", "job_evidence_safety_gate", "job_reference_executor", False),
-    CapabilityDescriptor("stock-reservation", "strong-human", "stock_reservation_safety_gate", "stock_reservation_executor", False),
-    CapabilityDescriptor("communication-history", "strong-human", "communication_history_safety_gate", "communication_history_executor", False),
-    CapabilityDescriptor("report-snapshot", "human", "report_snapshot_safety_gate", "report_snapshot_executor", False),
+    CapabilityDescriptor(
+        "invoice-delivery-preparation",
+        "strong-human",
+        "business_agents.gateway.invoice_delivery_preparation_safety_gate",
+        "business_agents.executors.invoice_delivery_preparation_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "invoice-handoff-confirmation",
+        "strong-human",
+        "business_agents.gateway.invoice_handoff_confirmation_safety_gate",
+        "business_agents.executors.invoice_handoff_confirmation_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "payment-recording",
+        "strong-human",
+        "business_agents.gateway.payment_recording_safety_gate",
+        "business_agents.executors.reported_amount_recording_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "customer-account-binding",
+        "strong-human",
+        "business_agents.gateway.customer_account_binding_safety_gate",
+        "business_agents.executors.account_link_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "change-order",
+        "strong-human",
+        "business_agents.gateway.change_order_safety_gate",
+        "business_agents.executors.amendment_record_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "job-cost-record",
+        "strong-human",
+        "business_agents.gateway.job_evidence_safety_gate",
+        "business_agents.executors.job_reference_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "stock-reservation",
+        "strong-human",
+        "business_agents.gateway.stock_reservation_safety_gate",
+        "business_agents.executors.stock_reservation_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "communication-history",
+        "strong-human",
+        "business_agents.gateway.communication_history_safety_gate",
+        "business_agents.executors.communication_history_executor",
+        False,
+    ),
+    CapabilityDescriptor(
+        "report-snapshot",
+        "human",
+        "business_agents.gateway.report_snapshot_safety_gate",
+        "business_agents.executors.report_snapshot_executor",
+        False,
+    ),
 )
 
 
