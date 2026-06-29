@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pytest
-
 from business_agents.agents.invoice_handoff_confirmation_agent import InvoiceHandoffConfirmationAgent
 from business_agents.executors.invoice_handoff_confirmation_executor import InvoiceHandoffConfirmationExecutor
 from business_agents.gateway.invoice_handoff_confirmation_safety_gate import InvoiceHandoffConfirmationSafetyGate
@@ -53,6 +52,8 @@ def test_confirmation_is_durable_and_receipted(tmp_path: Path) -> None:
     confirmations = InvoiceHandoffConfirmationStore(tmp_path / "confirmations.jsonl")
     receipts = JsonlReceiptStore(tmp_path / "receipts.jsonl")
     result = execute(InvoiceHandoffConfirmationExecutor(jobs, preparations, confirmations, receipts), InvoiceHandoffConfirmationAgent().propose(context()).intent)
+    receipt = receipts.read_all()[-1]
     assert confirmations.get("CONF-1") is not None
     assert result.output["invoice_id"] == "INV-1"
-    assert receipts.read_all()[-1].details["confirmed_by"] == "owner-1"
+    assert receipt.details["confirmed_by"] == "owner-1"
+    assert result.receipt_id == receipt.receipt_id
