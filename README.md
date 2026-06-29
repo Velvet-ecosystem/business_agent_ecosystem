@@ -24,7 +24,7 @@ human and business inputs
   -> chained receipt log
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and [SECURITY.md](SECURITY.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), and the [Skill and Automation Trajectory](docs/skill_and_automation_trajectory.md).
 
 ## Working Vertical Slices
 
@@ -110,6 +110,8 @@ Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 ## Status
 
 Early private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, and estimate-backed readiness flows.
+
+The bounded business foundation is stable. Future business skills, commerce adapters, procurement workflows, and Foundry capabilities follow the shared trajectory rather than creating parallel automation stacks.
 
 ## License
 
