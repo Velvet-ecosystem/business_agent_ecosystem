@@ -1,1 +1,0 @@
-Registered capabilities must remain local-only, use bounded human approval modes, and name both gate and executor modules.
