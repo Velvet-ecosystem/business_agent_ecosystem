@@ -75,6 +75,41 @@ Early Foundry skills should include:
 
 Design skills must produce reviewable artifacts, previews, diffs, and validation results. Sending a print job, ordering a PCB, controlling machinery, or purchasing components is a separate external action with stronger approval and safety requirements.
 
+## Ecosystem-wide brief trajectory
+
+The business daily brief is the first domain-specific proof of a broader Velvet brief pattern. The business implementation remains owned by the business domain, while a future shared brief contract allows other domains to contribute bounded summaries without exposing their internal stores directly.
+
+Planned domain brief providers include:
+
+- business operations,
+- vehicle health and maintenance,
+- medical monitoring and device readiness,
+- security and cybersecurity,
+- Foundry and machine readiness,
+- continuity, integrity, backup, and recovery,
+- home, mobile, and other enabled Velvet surfaces.
+
+The shared composition path should be:
+
+```text
+shared brief contract
+  -> permitted domain brief providers
+  -> privacy, identity, and mode filtering
+  -> owner-facing Velvet brief
+```
+
+Briefs remain read-only readers and composers. They may summarize, rank, and recommend attention, but they do not inherit execution authority and may not send, purchase, publish, unlock, drive, control machinery, or mutate domain state.
+
+The ecosystem should support three brief classes:
+
+1. **Domain briefs**: small summaries owned by one domain.
+2. **Velvet composed brief**: an owner-facing composition of permitted domain summaries.
+3. **Exception briefs**: focused alerts for urgent medical, security, vehicle-safety, integrity, or recovery conditions that should not wait for a scheduled brief.
+
+Owner, guest, mobile, and remote views must receive different detail according to identity, context, privacy, and authentication strength. The composed brief must not become a central data warehouse or a shortcut around domain boundaries.
+
+Promote this into an ecosystem-wide contract only after at least two non-business domain briefs prove that their contracts can remain small, deterministic, privacy-filtered, and read-only.
+
 ## Automation ladder
 
 Every domain advances through the same stages:
@@ -122,6 +157,8 @@ The recommended sequence is:
 9. add orchestration only after individual skills are proven,
 10. consider limited autonomy only after repeated verified operation.
 
+The ecosystem-wide composed brief belongs after multiple domain brief providers exist, not before them.
+
 ## Guardrails
 
 - Local business records remain the source of truth.
@@ -132,6 +169,8 @@ The recommended sequence is:
 - Every external action must be verified and receipted.
 - New domains reuse the shared framework rather than inventing parallel automation stacks.
 - Deferred high-risk areas remain deferred until a concrete need, threat model, and approval design exist.
+- Composed briefs remain read-only and privacy-filtered.
+- Domain briefs expose bounded summaries, not unrestricted access to their stores.
 
 ## Direction
 
@@ -142,3 +181,5 @@ The next implementation milestone is a minimal skill framework proven by three r
 3. `customer-history-summary`.
 
 The first preparation skill should follow only after those contracts are stable. Commerce, procurement, and Foundry work then attach to the same framework in that order of risk, not as independent side projects.
+
+After multiple Velvet domains have proven read-only brief providers, promote a small shared brief contract and owner-facing composition layer at the ecosystem level.
