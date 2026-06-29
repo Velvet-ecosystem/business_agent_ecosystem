@@ -24,7 +24,7 @@ human and business inputs
   -> chained receipt log
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), and the [Skill and Automation Trajectory](docs/skill_and_automation_trajectory.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), the [Skill and Automation Trajectory](docs/skill_and_automation_trajectory.md), and the [Engineering Quality Standard](docs/engineering_quality_standard.md).
 
 ## Working Vertical Slices
 
