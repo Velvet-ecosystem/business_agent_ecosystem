@@ -55,3 +55,12 @@ class CommunicationRecordStore:
             for payload in self._storage.read_all()
             if payload.get("job_id") == job_id
         )
+
+    def list_for_customer(self, customer_reference: str) -> tuple[CommunicationRecord, ...]:
+        if not isinstance(customer_reference, str) or not customer_reference.strip():
+            raise ValueError("customer_reference must be a non-empty string")
+        return tuple(
+            CommunicationRecord(**payload)
+            for payload in self._storage.read_all()
+            if payload.get("customer_reference") == customer_reference
+        )
