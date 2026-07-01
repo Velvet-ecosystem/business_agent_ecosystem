@@ -25,16 +25,24 @@ class JsonlInvoiceDraftStore:
         return draft
 
     def get(self, invoice_id: str) -> InvoiceDraft | None:
-        for payload in reversed(self._storage.read_all()):
-            if payload.get("invoice_id") == invoice_id:
-                return InvoiceDraft(
-                    invoice_id=str(payload["invoice_id"]),
-                    job_id=str(payload["job_id"]),
-                    evidence_id=str(payload["evidence_id"]),
-                    currency=str(payload["currency"]),
-                    subtotal=money(payload["subtotal"]),
-                    tax_amount=money(payload["tax_amount"]),
-                    total=money(payload["total"]),
-                    notes=str(payload.get("notes", "")),
-                )
+        for draft in reversed(self.list_current()):
+            if draft.invoice_id == invoice_id:
+                return draft
         return None
+
+    def list_current(self) -> tuple[InvoiceDraft, ...]:
+        drafts = [self._decode(payload) for payload in self._storage.read_all()]
+        return tuple(sorted(drafts, key=lambda draft: draft.invoice_id))
+
+    @staticmethod
+    def _decode(payload: dict) -> InvoiceDraft:
+        return InvoiceDraft(
+            invoice_id=str(payload["invoice_id"]),
+            job_id=str(payload["job_id"]),
+            evidence_id=str(payload["evidence_id"]),
+            currency=str(payload["currency"]),
+            subtotal=money(payload["subtotal"]),
+            tax_amount=money(payload["tax_amount"]),
+            total=money(payload["total"]),
+            notes=str(payload.get("notes", "")),
+        )
