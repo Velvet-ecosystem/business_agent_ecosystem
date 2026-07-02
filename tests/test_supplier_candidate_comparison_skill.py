@@ -4,6 +4,10 @@ from pathlib import Path
 import pytest
 
 from business_agents.procurement import SupplierCandidate, SupplierCandidateStore
+from business_agents.procurement_requirements import (
+    ProcurementRequirement,
+    ProcurementRequirementStore,
+)
 from business_agents.skills.supplier_candidate_comparison import SupplierCandidateComparisonSkill
 
 
@@ -21,6 +25,22 @@ def _candidate(candidate_id: str, supplier: str, unit: str, shipping: str) -> Su
         source_reference=f"source://{candidate_id}",
         compatibility_evidence=("datasheet-pinout-match",),
         risk_flags=("marketplace-seller",) if candidate_id == "cand-002" else (),
+    )
+
+
+def _requirement() -> ProcurementRequirement:
+    return ProcurementRequirement(
+        requirement_id="req-001",
+        item_name="Automotive relay",
+        quantity=2,
+        intended_use="Isolated accessory control",
+        compatibility_constraints=("12V coil", "automotive-rated"),
+        acceptable_substitutions=("sealed equivalent",),
+        target_budget=Decimal("40.00"),
+        currency="CAD",
+        required_evidence=("datasheet", "pinout"),
+        urgency="normal",
+        source_reference="job://job-001",
     )
 
 
@@ -42,15 +62,30 @@ def test_supplier_candidate_requires_compatibility_evidence() -> None:
 
 
 def test_supplier_comparison_is_read_only_and_non_purchasing(tmp_path: Path) -> None:
-    path = tmp_path / "suppliers.jsonl"
-    store = SupplierCandidateStore(path)
-    store.create(_candidate("cand-002", "Supplier Two", "8.00", "5.00"))
-    store.create(_candidate("cand-001", "Supplier One", "10.00", "0.00"))
+    requirement_path = tmp_path / "requirements.jsonl"
+    candidate_path = tmp_path / "suppliers.jsonl"
+    requirements = ProcurementRequirementStore(requirement_path)
+    candidates = SupplierCandidateStore(candidate_path)
+    requirements.create(_requirement())
+    candidates.create(_candidate("cand-002", "Supplier Two", "8.00", "5.00"))
+    candidates.create(_candidate("cand-001", "Supplier One", "10.00", "0.00"))
 
-    before = path.read_text(encoding="utf-8")
-    result = SupplierCandidateComparisonSkill(store).run({"requirement_id": "req-001"})
-    after = path.read_text(encoding="utf-8")
+    before_requirements = requirement_path.read_text(encoding="utf-8")
+    before_candidates = candidate_path.read_text(encoding="utf-8")
+    result = SupplierCandidateComparisonSkill(requirements, candidates).run(
+        {"requirement_id": "req-001"}
+    )
 
+    assert result.output["requirement"] == {
+        "requirement_id": "req-001",
+        "item_name": "Automotive relay",
+        "quantity": 2,
+        "intended_use": "Isolated accessory control",
+        "target_budget": "40.00",
+        "currency": "CAD",
+        "urgency": "normal",
+        "status": "research",
+    }
     assert result.output["candidate_count"] == 2
     assert result.output["currencies"] == ("CAD",)
     assert result.output["purchase_authority"] is False
@@ -58,11 +93,26 @@ def test_supplier_comparison_is_read_only_and_non_purchasing(tmp_path: Path) -> 
     assert result.output["candidates"][0]["landed_cost"] == "20.00"
     assert result.output["candidates"][1]["landed_cost"] == "21.00"
     assert result.output["candidates"][1]["risk_flags"] == ("marketplace-seller",)
-    assert before == after
+    assert requirement_path.read_text(encoding="utf-8") == before_requirements
+    assert candidate_path.read_text(encoding="utf-8") == before_candidates
+
+
+def test_supplier_comparison_rejects_orphaned_requirement(tmp_path: Path) -> None:
+    requirements = ProcurementRequirementStore(tmp_path / "requirements.jsonl")
+    candidates = SupplierCandidateStore(tmp_path / "suppliers.jsonl")
+    candidates.create(_candidate("cand-001", "Supplier One", "10.00", "0.00"))
+
+    with pytest.raises(ValueError, match="procurement requirement not found"):
+        SupplierCandidateComparisonSkill(requirements, candidates).run(
+            {"requirement_id": "req-001"}
+        )
 
 
 def test_supplier_comparison_rejects_purchase_input(tmp_path: Path) -> None:
-    skill = SupplierCandidateComparisonSkill(SupplierCandidateStore(tmp_path / "suppliers.jsonl"))
+    skill = SupplierCandidateComparisonSkill(
+        ProcurementRequirementStore(tmp_path / "requirements.jsonl"),
+        SupplierCandidateStore(tmp_path / "suppliers.jsonl"),
+    )
 
     with pytest.raises(ValueError, match="requires only requirement_id"):
         skill.run({"requirement_id": "req-001", "purchase": True})
