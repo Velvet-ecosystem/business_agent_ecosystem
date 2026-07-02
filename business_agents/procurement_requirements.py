@@ -40,8 +40,8 @@ class ProcurementRequirement:
                 raise ValueError(f"{name} must be a non-empty string")
         if not isinstance(self.quantity, int) or self.quantity <= 0:
             raise ValueError("quantity must be a positive integer")
-        if money(self.target_budget) < Decimal("0.00"):
-            raise ValueError("target_budget cannot be negative")
+        if not isinstance(self.target_budget, Decimal) or self.target_budget < 0:
+            raise ValueError("target_budget must be a non-negative Decimal")
         for name, values in (
             ("compatibility_constraints", self.compatibility_constraints),
             ("acceptable_substitutions", self.acceptable_substitutions),
