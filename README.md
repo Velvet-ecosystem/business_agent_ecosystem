@@ -24,7 +24,7 @@ human and business inputs
   -> chained receipt log
 ```
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), the [Skill and Automation Trajectory](docs/skill_and_automation_trajectory.md), the [Engineering Quality Standard](docs/engineering_quality_standard.md), and the [Protective and Operational Roles](docs/protective_and_operational_roles.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md), the [Skill and Automation Trajectory](docs/skill_and_automation_trajectory.md), the [Engineering Quality Standard](docs/engineering_quality_standard.md), the [Protective and Operational Roles](docs/protective_and_operational_roles.md), and the [Procurement Authority Reconciliation](docs/procurement_authority_reconciliation.md).
 
 ## Working Vertical Slices
 
@@ -83,6 +83,28 @@ estimating job + estimate reference
 
 The transition fails if the estimate is missing, belongs to another job, or the job state changed after authorization. The estimate remains an internal draft; readiness does not send a quote, book work, or claim customer acceptance.
 
+### Procurement review and lineage
+
+The current procurement slice is deliberately non-executing:
+
+```text
+requirement
+  -> supplier candidates
+  -> comparison
+  -> prepared purchase package
+  -> immutable artifact + canonical digest
+  -> exact artifact review request
+  -> explicit human decision
+  -> decision-aware review state
+  -> lineage package carrying the same artifact and digest
+  -> immutable route/action/subject/handler binding
+  -> inert single-use bounded record
+```
+
+The immutable artifact binds supplier identity, supplier and manufacturer part numbers, quantity, currency, unit price, shipping, landed cost, destination reference, evidence, and review flags. Changing any sealed field changes the digest and therefore creates a different review subject.
+
+This slice cannot contact a supplier, use payment credentials, place an order, create a Court grant, invoke an executor, or claim that an external result occurred. Its integration test proves artifact continuity and rejects digest drift while authority and action outputs remain false.
+
 Run the current workshop demonstrations with:
 
 ```bash
@@ -97,6 +119,8 @@ Business intents declare a risk level and approval mode. High-risk intents canno
 
 Agents may pass bounded context through structured handoffs, but a handoff carries no authority and performs no side effect.
 
+The canonical runtime authority path remains `CourtPolicy` plus `BusinessCoordinator`. Court grants are short-lived, single-use, and bound to the complete business-intent fingerprint and optional principal session. Procurement must extend this existing path rather than create a parallel issuer or executor channel.
+
 ## Recommended Stores
 
 Use `ChainedReceiptStore` for active business flows. It provides append-order verification, previous-receipt linking, deletion and reorder detection, optional HMAC-SHA256 authenticity, and local single-writer locking.
@@ -105,13 +129,15 @@ Use `JsonlJobStore` for the current durable job prototype. It records append-onl
 
 Use `JsonlEstimateStore` for immutable internal estimate drafts while the estimate and revision contracts stabilize.
 
+Use `PreparedPurchaseArtifactStore` for immutable, canonical-digest procurement review artifacts. It stores prepared review evidence only and grants no purchasing authority.
+
 Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Early private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, and estimate-backed readiness flows.
+Private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, estimate-backed readiness, business summary, approval queue, and non-executing procurement review flows.
 
-The bounded business foundation is stable. Future business skills, commerce adapters, procurement workflows, and Foundry capabilities follow the shared trajectory rather than creating parallel automation stacks.
+The procurement preparation and review boundary is stable through artifact lineage and inert bounded matching. The next implementation phase is reconciliation with the existing Court intent-grant path, followed by negative integration tests and issuance design. Supplier contact, payment use, order placement, record consumption, and external verification remain intentionally unimplemented.
 
 ## License
 
