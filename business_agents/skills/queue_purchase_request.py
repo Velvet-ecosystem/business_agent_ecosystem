@@ -1,4 +1,4 @@
-"""Queue a prepared purchase package for explicit human review only."""
+"""Queue one immutable prepared purchase artifact for explicit human review."""
 
 from __future__ import annotations
 
@@ -6,22 +6,20 @@ from typing import Any, Mapping
 
 from business_agents.approval_requests import ApprovalRequest, ApprovalRequestStore
 from business_agents.contracts import ApprovalMode, RiskLevel
-from business_agents.procurement import SupplierCandidateStore
-from business_agents.procurement_requirements import ProcurementRequirementStore
+from business_agents.prepared_purchase_artifacts import PreparedPurchaseArtifactStore
 from business_agents.skills.base import BaseSkill
 from business_agents.skills.contracts import SkillContract, SkillDomain, SkillEffect, SkillResult
-from business_agents.skills.prepare_purchase_request import PreparePurchaseRequestSkill
 
 
 class QueuePurchaseRequestSkill(BaseSkill):
     contract = SkillContract(
         skill_id="queue-purchase-request",
-        version="1.0.0",
+        version="2.0.0",
         domain=SkillDomain.PROCUREMENT,
         effect=SkillEffect.STATE_CHANGING,
         approval_mode=ApprovalMode.HUMAN,
-        input_fields=("approval_request_id", "requirement_id", "candidate_id", "requested_by"),
-        output_fields=("approval_request", "order_authority", "court_authority"),
+        input_fields=("approval_request_id", "artifact_id", "requested_by"),
+        output_fields=("approval_request", "artifact_digest", "order_authority", "court_authority"),
         capability_route="approval-request",
         capability_action="create-purchase-review",
         external_action=False,
@@ -34,11 +32,10 @@ class QueuePurchaseRequestSkill(BaseSkill):
 
     def __init__(
         self,
-        requirement_store: ProcurementRequirementStore,
-        candidate_store: SupplierCandidateStore,
+        artifact_store: PreparedPurchaseArtifactStore,
         approval_store: ApprovalRequestStore,
     ) -> None:
-        self._prepare = PreparePurchaseRequestSkill(requirement_store, candidate_store)
+        self._artifact_store = artifact_store
         self._approval_store = approval_store
 
     def run(self, inputs: Mapping[str, Any]) -> SkillResult:
@@ -51,26 +48,24 @@ class QueuePurchaseRequestSkill(BaseSkill):
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string")
 
-        prepared = self._prepare.run(
-            {
-                "requirement_id": inputs["requirement_id"],
-                "candidate_id": inputs["candidate_id"],
-            }
-        )
-        package = prepared.output["purchase_request"]
-        flags = prepared.output["review_flags"]
+        artifact = self._artifact_store.get(inputs["artifact_id"])
+        if artifact is None:
+            raise ValueError("prepared purchase artifact not found")
+
         summary = (
-            f"Review purchase of {package['quantity']} x {package['item_name']} "
-            f"from {package['supplier_name']} for {package['landed_cost']} {package['currency']}"
+            f"Review artifact {artifact.artifact_id} digest {artifact.payload_digest}: "
+            f"{artifact.quantity} x {artifact.item_name} from {artifact.supplier_name} "
+            f"for {artifact.landed_cost} {artifact.currency} to "
+            f"{artifact.delivery_destination_reference}"
         )
-        if flags:
-            summary += f"; flags: {', '.join(flags)}"
+        if artifact.review_flags:
+            summary += f"; flags: {', '.join(artifact.review_flags)}"
 
         request = ApprovalRequest(
             request_id=inputs["approval_request_id"],
             route="procurement.order",
             action="place-bounded-order",
-            subject_id=inputs["requirement_id"],
+            subject_id=artifact.artifact_id,
             summary=summary,
             requested_by=inputs["requested_by"],
             risk_level=RiskLevel.HIGH,
@@ -92,6 +87,7 @@ class QueuePurchaseRequestSkill(BaseSkill):
                     "approval_mode": request.approval_mode.value,
                     "status": request.status.value,
                 },
+                "artifact_digest": artifact.payload_digest,
                 "order_authority": False,
                 "court_authority": False,
             },
