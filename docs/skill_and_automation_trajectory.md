@@ -26,13 +26,14 @@ A skill may propose or prepare work. It does not inherit authority from the agen
 
 Read, summarize, prepare, and record work involving customers, jobs, invoices, payments, stock, communication history, change orders, and reports.
 
-Initial skills should include:
+Current and near-term skills include:
 
 - business daily brief,
 - job status summary,
 - customer history summary,
 - outstanding invoice summary,
 - attention and approval queue,
+- decision recording and lineage,
 - prepared customer follow-up,
 - prepared job completion packet.
 
@@ -51,11 +52,31 @@ Procurement serves production and operations through:
 - compatibility and counterfeit-risk checks,
 - quote and landed-cost comparison,
 - prepared purchase requests,
+- immutable review artifacts,
+- explicit human decisions,
 - approved order placement,
 - receiving inspection,
 - stock and discrepancy records.
 
 Finding a component never grants permission to purchase it. The final seller, part number, quantity, price, shipping destination, and payment impact must be reviewed before execution.
+
+Current procurement maturity is non-executing:
+
+```text
+requirement
+  -> supplier candidates
+  -> comparison
+  -> prepared purchase package
+  -> immutable artifact + canonical digest
+  -> exact artifact review request
+  -> human decision
+  -> decision-aware queue state
+  -> decision lineage carrying artifact ID and digest
+  -> immutable operation binding
+  -> inert bounded record
+```
+
+Changing any sealed commercial field creates a different digest and therefore a different approval subject. This path cannot contact suppliers, access payment credentials, place an order, issue a Court grant, invoke an executor, or claim an external outcome.
 
 ### Foundry
 
@@ -135,6 +156,7 @@ agent or user request
   -> capability lookup
   -> policy and safety gate
   -> human approval when required
+  -> canonical Court intent grant
   -> bounded executor or external adapter
   -> result verification
   -> durable record and receipt
@@ -142,20 +164,30 @@ agent or user request
 
 External systems remain replaceable edges. Shopify, eBay, Amazon, social platforms, suppliers, board houses, printers, CAD tools, and workshop machines must not become the authority core.
 
+The canonical runtime authority implementation is `CourtPolicy` plus `BusinessCoordinator`. Court grants are short-lived, single-use, and bound to the full `BusinessIntent` fingerprint and optional principal session. New domains must extend that path instead of creating parallel issuers or authorization stores.
+
 ## Build order
 
-The recommended sequence is:
+Completed or substantially proven:
 
-1. define the shared skill contract and loader,
-2. add read-only business summaries,
-3. add the approval and attention queue,
-4. add preparation-only business skills,
-5. add procurement records and supplier research,
-6. add Foundry inspection and fabrication-package skills,
-7. add one commerce connector in read-only mode,
-8. add tightly approved external actions one at a time,
-9. add orchestration only after individual skills are proven,
-10. consider limited autonomy only after repeated verified operation.
+1. shared contracts and bounded gateway architecture,
+2. read-only business summaries,
+3. approval and attention queue,
+4. preparation-only business skills,
+5. procurement requirements, supplier research, immutable review artifacts, decisions, and lineage,
+6. non-executing integration proof from artifact through bounded matching.
+
+Recommended next sequence:
+
+1. reconcile procurement bindings with the existing Court intent-grant path,
+2. add negative integration tests for denial, expiry, missing artifacts, route drift, action drift, handler drift, and digest drift,
+3. define one exact procurement `BusinessIntent` schema and safety policy,
+4. define verification and receipt requirements before adding an executor,
+5. add Foundry inspection and fabrication-package skills,
+6. add one commerce connector in read-only mode,
+7. add tightly approved external actions one at a time,
+8. add orchestration only after individual skills are proven,
+9. consider limited autonomy only after repeated verified operation.
 
 The ecosystem-wide composed brief belongs after multiple domain brief providers exist, not before them.
 
@@ -171,15 +203,25 @@ The ecosystem-wide composed brief belongs after multiple domain brief providers 
 - Deferred high-risk areas remain deferred until a concrete need, threat model, and approval design exist.
 - Composed briefs remain read-only and privacy-filtered.
 - Domain briefs expose bounded summaries, not unrestricted access to their stores.
+- Procurement preparation records are evidence and lineage, not runtime authority.
+- `CourtPolicy` remains the sole runtime issuer unless the authority layer is deliberately generalized for every domain.
 
 ## Direction
 
-The next implementation milestone is a minimal skill framework proven by three read-only skills:
+The next implementation milestone is not order placement. It is the authority-reconciliation and negative-testing pass documented in [Procurement Authority Reconciliation](procurement_authority_reconciliation.md).
 
-1. `business-daily-brief`,
-2. `job-status-summary`,
-3. `customer-history-summary`.
+The immediate proof target is:
 
-The first preparation skill should follow only after those contracts are stable. Commerce, procurement, and Foundry work then attach to the same framework in that order of risk, not as independent side projects.
+```text
+approved immutable procurement artifact
+  -> one exact BusinessIntent containing artifact and lineage fields
+  -> existing safety gate
+  -> existing CourtPolicy
+  -> existing BusinessCoordinator
+  -> registered inert or simulated handler
+  -> verified no-op receipt in tests
+```
+
+Only after this shared path is proven should the repository consider durable issuance details, an external supplier adapter, payment boundaries, order verification, or receiving workflows.
 
 After multiple Velvet domains have proven read-only brief providers, promote a small shared brief contract and owner-facing composition layer at the ecosystem level.
