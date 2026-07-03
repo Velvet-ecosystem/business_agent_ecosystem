@@ -2,7 +2,19 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from business_agents.bound_artifact_scope import BoundArtifactScope
 from business_agents.bounded_action_ticket import BoundedActionTicket, BoundedActionTicketStatus
+
+
+def make_binding() -> BoundArtifactScope:
+    return BoundArtifactScope(
+        artifact_id="artifact-001",
+        artifact_digest="a" * 64,
+        route="example.route",
+        action="example-action",
+        subject_id="artifact-001",
+        handler_id="handler-001",
+    )
 
 
 def make_ticket(**changes):
@@ -11,9 +23,7 @@ def make_ticket(**changes):
         "ticket_id": "ticket-001",
         "approval_request_id": "approval-001",
         "decision_id": "decision-001",
-        "route": "example.route",
-        "action": "example-action",
-        "subject_id": "subject-001",
+        "binding": make_binding(),
         "issued_by": "Court",
         "issued_at": start,
         "expires_at": start + timedelta(minutes=5),
@@ -29,10 +39,29 @@ def test_ticket_is_live_only_inside_window():
     assert not ticket.is_live(ticket.expires_at)
 
 
-def test_ticket_matches_exact_scope_only():
+def test_ticket_matches_exact_binding_only():
     ticket = make_ticket()
-    assert ticket.matches(route="example.route", action="example-action", subject_id="subject-001")
-    assert not ticket.matches(route="example.route", action="example-action", subject_id="subject-002")
+    assert ticket.matches(
+        artifact_id="artifact-001",
+        artifact_digest="a" * 64,
+        route="example.route",
+        action="example-action",
+        subject_id="artifact-001",
+        handler_id="handler-001",
+    )
+    assert not ticket.matches(
+        artifact_id="artifact-001",
+        artifact_digest="b" * 64,
+        route="example.route",
+        action="example-action",
+        subject_id="artifact-001",
+        handler_id="handler-001",
+    )
+
+
+def test_ticket_requires_binding():
+    with pytest.raises(ValueError, match="BoundArtifactScope"):
+        make_ticket(binding="invalid")
 
 
 def test_ticket_must_be_single_use():
