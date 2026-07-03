@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from business_agents.approval_decisions import ApprovalDecisionStore, ApprovalDecisionValue
 from business_agents.approval_requests import ApprovalRequestStore
 from business_agents.contracts import ApprovalMode
+from business_agents.prepared_purchase_artifacts import PreparedPurchaseArtifactStore
 from business_agents.skills.base import BaseSkill
 from business_agents.skills.contracts import SkillContract, SkillDomain, SkillEffect, SkillResult
 
@@ -14,7 +15,7 @@ from business_agents.skills.contracts import SkillContract, SkillDomain, SkillEf
 class PrepareDecisionLineageSkill(BaseSkill):
     contract = SkillContract(
         skill_id="prepare-decision-lineage",
-        version="1.0.0",
+        version="2.0.0",
         domain=SkillDomain.PROTECTIVE,
         effect=SkillEffect.READ_ONLY,
         approval_mode=ApprovalMode.STRONG_HUMAN,
@@ -32,9 +33,11 @@ class PrepareDecisionLineageSkill(BaseSkill):
         self,
         request_store: ApprovalRequestStore,
         decision_store: ApprovalDecisionStore,
+        artifact_store: PreparedPurchaseArtifactStore,
     ) -> None:
         self._request_store = request_store
         self._decision_store = decision_store
+        self._artifact_store = artifact_store
 
     def run(self, inputs: Mapping[str, Any]) -> SkillResult:
         if not isinstance(inputs, Mapping):
@@ -60,9 +63,15 @@ class PrepareDecisionLineageSkill(BaseSkill):
         if request.approval_mode is ApprovalMode.STRONG_HUMAN and not decision.strong_confirmation:
             raise ValueError("approved decision lacks strong confirmation")
 
+        artifact = self._artifact_store.get(request.subject_id)
+        if artifact is None:
+            raise ValueError("approved artifact not found")
+
         package = {
             "approval_request_id": request.request_id,
             "decision_id": decision.decision_id,
+            "artifact_id": artifact.artifact_id,
+            "artifact_digest": artifact.payload_digest,
             "route": request.route,
             "action": request.action,
             "subject_id": request.subject_id,
@@ -72,6 +81,7 @@ class PrepareDecisionLineageSkill(BaseSkill):
             "decision_rationale": decision.rationale,
             "single_use_requested": True,
             "bounded_to_exact_route_action_subject": True,
+            "bounded_to_exact_artifact_digest": True,
         }
         return SkillResult(
             skill_id=self.contract.skill_id,
