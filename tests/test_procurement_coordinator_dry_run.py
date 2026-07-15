@@ -39,6 +39,15 @@ class ProcurementAgent(BaseAgent):
         return self._proposal
 
 
+def make_coordinator(receipt_store: JsonlReceiptStore) -> BusinessCoordinator:
+    return BusinessCoordinator(
+        court=CourtPolicy(),
+        safety_gate=ProcurementSafetyGate(),
+        executor_registry=ExecutorRegistry([ProcurementDryRunExecutor()]),
+        receipt_store=receipt_store,
+    )
+
+
 def test_procurement_intent_runs_through_existing_coordinator(tmp_path):
     receipt_store = JsonlReceiptStore(tmp_path / "receipts.jsonl")
     intent = build_procurement_intent(lineage(), handler_id="handler-001")
@@ -48,14 +57,8 @@ def test_procurement_intent_runs_through_existing_coordinator(tmp_path):
         rationale="Confirm reviewed procurement intent shape.",
         confidence=1.0,
     )
-    coordinator = BusinessCoordinator(
-        court=CourtPolicy(),
-        safety_gate=ProcurementSafetyGate(),
-        executor_registry=ExecutorRegistry([ProcurementDryRunExecutor()]),
-        receipt_store=receipt_store,
-    )
 
-    result = coordinator.run(
+    result = make_coordinator(receipt_store).run(
         ProcurementAgent(proposal),
         {
             "_principal_id": "principal-001",
@@ -76,6 +79,20 @@ def test_procurement_intent_runs_through_existing_coordinator(tmp_path):
     assert result.output["authorization_id"]
     assert result.output["authorization_fingerprint"]
 
+    receipts = receipt_store.read_all()
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt_store.verify(receipt)
+    assert receipt.actor == "Court"
+    assert receipt.decision == "authorized"
+    assert receipt.subject_id == "artifact-001"
+    assert receipt.details["route"] == "procurement.order"
+    assert receipt.details["action"] == "place-bounded-order"
+    assert receipt.details["principal_id"] == "principal-001"
+    assert receipt.details["principal_session_id"] == "session-001"
+    assert receipt.details["authorization_id"] == result.output["authorization_id"]
+    assert receipt.details["authorization_fingerprint"] == result.output["authorization_fingerprint"]
+
 
 def test_procurement_coordinator_rejects_safety_failure(tmp_path):
     receipt_store = JsonlReceiptStore(tmp_path / "receipts.jsonl")
@@ -94,12 +111,18 @@ def test_procurement_coordinator_rejects_safety_failure(tmp_path):
         rationale="Invalid shape should fail safety.",
         confidence=1.0,
     )
-    coordinator = BusinessCoordinator(
-        court=CourtPolicy(),
-        safety_gate=ProcurementSafetyGate(),
-        executor_registry=ExecutorRegistry([ProcurementDryRunExecutor()]),
-        receipt_store=receipt_store,
-    )
 
     with pytest.raises(PermissionError, match="safety-check-failed"):
-        coordinator.run(ProcurementAgent(proposal), {}, identity_verified=True)
+        make_coordinator(receipt_store).run(ProcurementAgent(proposal), {}, identity_verified=True)
+
+    receipts = receipt_store.read_all()
+    assert len(receipts) == 1
+    receipt = receipts[0]
+    assert receipt_store.verify(receipt)
+    assert receipt.actor == "Court"
+    assert receipt.decision == "denied"
+    assert receipt.subject_id == "artifact-002"
+    assert receipt.details["reason"] == "safety-check-failed"
+    assert receipt.details["safety_reason"] == "subject-artifact-mismatch"
+    assert receipt.details["identity_verified"] is True
+    assert receipt.details["safety_passed"] is False
