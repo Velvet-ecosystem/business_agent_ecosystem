@@ -83,9 +83,9 @@ estimating job + estimate reference
 
 The transition fails if the estimate is missing, belongs to another job, or the job state changed after authorization. The estimate remains an internal draft; readiness does not send a quote, book work, or claim customer acceptance.
 
-### Procurement review and lineage
+### Procurement review, Court path, and verified dry-run
 
-The current procurement slice is deliberately non-executing:
+The current procurement slice is deliberately non-external:
 
 ```text
 requirement
@@ -97,13 +97,19 @@ requirement
   -> explicit human decision
   -> decision-aware review state
   -> lineage package carrying the same artifact and digest
-  -> immutable route/action/subject/handler binding
-  -> inert single-use bounded record
+  -> canonical procurement BusinessIntent
+  -> procurement safety gate
+  -> existing CourtPolicy and BusinessCoordinator
+  -> dry-run executor
+  -> Court authorization or denial receipt
+  -> read-only evidence verifier
 ```
 
 The immutable artifact binds supplier identity, supplier and manufacturer part numbers, quantity, currency, unit price, shipping, landed cost, destination reference, evidence, and review flags. Changing any sealed field changes the digest and therefore creates a different review subject.
 
-This slice cannot contact a supplier, use payment credentials, place an order, create a Court grant, invoke an executor, or claim that an external result occurred. Its integration test proves artifact continuity and rejects digest drift while authority and action outputs remain false.
+The dry-run path proves that a reviewed procurement intent can travel through the same safety, Court, registry, one-use grant consumption, receipt, and verification chain as other business operations. The verifier checks that the approved intent, dry-run result, authorization receipt, authorization ID, authorization fingerprint, artifact ID, digest, handler ID, and `external_action: False` flag all agree.
+
+This slice cannot contact a supplier, use payment credentials, place an order, spend funds, cancel or refund an order, or claim that an external result occurred. It verifies internal readiness only.
 
 Run the current workshop demonstrations with:
 
@@ -119,7 +125,7 @@ Business intents declare a risk level and approval mode. High-risk intents canno
 
 Agents may pass bounded context through structured handoffs, but a handoff carries no authority and performs no side effect.
 
-The canonical runtime authority path remains `CourtPolicy` plus `BusinessCoordinator`. Court grants are short-lived, single-use, and bound to the complete business-intent fingerprint and optional principal session. Procurement must extend this existing path rather than create a parallel issuer or executor channel.
+The canonical runtime authority path remains `CourtPolicy` plus `BusinessCoordinator`. Court grants are short-lived, single-use, and bound to the complete business-intent fingerprint and optional principal session. Procurement extends this existing path rather than creating a parallel issuer or executor channel.
 
 ## Recommended Stores
 
@@ -135,9 +141,11 @@ Plain `JsonlReceiptStore` remains available for compatibility and focused tests.
 
 ## Status
 
-Private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, estimate-backed readiness, business summary, approval queue, and non-executing procurement review flows.
+Private architecture with working inventory, customer-intake, durable job-record, authority-gated transition, draft-only estimate, estimate-backed readiness, business summary, approval queue, and verified non-external procurement dry-run flows.
 
-The procurement preparation and review boundary is stable through artifact lineage and inert bounded matching. The next implementation phase is reconciliation with the existing Court intent-grant path, followed by negative integration tests and issuance design. Supplier contact, payment use, order placement, record consumption, and external verification remain intentionally unimplemented.
+The procurement preparation, review, Court-intent bridge, safety gate, dry-run executor, authorization and denial receipts, and read-only evidence verifier are stable as internal proof points. Supplier contact, payment use, order placement, refunds, cancellation, receiving inspection, stock mutation from received goods, and external verification remain intentionally unimplemented.
+
+The next implementation phase is receiving and verification design: define how a future received item would be checked against the approved artifact, supplier response, financial record, and receipt trail before any stock or job state changes.
 
 ## License
 
