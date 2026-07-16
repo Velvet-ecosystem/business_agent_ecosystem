@@ -67,7 +67,7 @@ class ReceivingEvidenceStore:
         )
 
     def add(self, evidence: ReceivingEvidence) -> ReceivingEvidence:
-        self._storage.append_unique(evidence.payload(), unique_key="evidence_id")
+        self._storage.append_unique(evidence.payload(), field="evidence_id")
         return evidence
 
     def get(self, evidence_id: str) -> ReceivingEvidence | None:
