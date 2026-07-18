@@ -2,9 +2,9 @@
 
 ## Summary
 
-The business-agent ecosystem currently has a safe internal operating spine, a verified procurement dry-run path, and a receiving verification chain for future goods intake evidence.
+The business-agent ecosystem currently has a safe internal operating spine, a verified procurement dry-run path, a receiving verification chain for future goods intake evidence, and stock eligibility decision records.
 
-The repository can model business work, prepare reviewable artifacts, route approved intents through the existing Court path, write local receipts, verify procurement dry-run evidence, and verify receiving evidence consistency.
+The repository can model business work, prepare reviewable artifacts, route approved intents through the existing Court path, write local receipts, verify procurement dry-run evidence, verify receiving evidence consistency, and record stock eligibility decisions.
 
 It does not perform real-world procurement, commerce, supplier communication, financial activity, fulfilment, stock release, or stock changes from received goods.
 
@@ -27,7 +27,8 @@ It does not perform real-world procurement, commerce, supplier communication, fi
 - receiving evidence records,
 - receiving inspection records,
 - receiving quarantine records,
-- read-only receiving chain verifier.
+- read-only receiving chain verifier,
+- stock eligibility decision records.
 
 ## Procurement maturity
 
@@ -62,6 +63,7 @@ receiving evidence
   -> inspection record
   -> optional quarantine record
   -> read-only receiving verifier
+  -> stock eligibility decision
 ```
 
 Receiving evidence records what is claimed to have arrived. Inspection records compare received evidence against expected values and produce matched, needs-review, or rejected status. Quarantine records hold non-matched review or rejection reasons.
@@ -69,6 +71,8 @@ Receiving evidence records what is claimed to have arrived. Inspection records c
 The receiving verifier checks that evidence, inspection, and quarantine records agree on artifact id, evidence id, inspection id, quantity, supplier part number, manufacturer part number, findings, and quarantine reason codes.
 
 Matched inspections must not have quarantine. Non-matched inspections must have quarantine. Every receiving layer reports `eligible_for_stock = False`.
+
+Stock eligibility decisions can record eligible, not-eligible, or review-required status from a receiving verification result. Every stock eligibility decision reports `mutates_stock = False`.
 
 ## Hard boundary
 
@@ -85,16 +89,16 @@ The following remain intentionally absent:
 
 ## Next gate
 
-The next milestone is stock eligibility design, not stock mutation.
+The next milestone is stock release review design, not stock mutation.
 
-Before any received item can become eligible for inventory, the system needs contracts for:
+Before any stock mutation is possible, the system needs contracts for:
 
-- supplier response evidence,
-- financial record evidence,
-- exact approval artifact binding,
-- receiving-chain verification result,
+- exact stock eligibility decision binding,
 - separate release review,
-- stock eligibility decision,
-- receipts for each step.
+- authority-gated release approval,
+- immutable release receipt,
+- inventory mutation proposal,
+- mutation safety gate,
+- post-mutation verification.
 
 Only after those contracts are stable should the repository consider stock mutation or any real-world connector.
