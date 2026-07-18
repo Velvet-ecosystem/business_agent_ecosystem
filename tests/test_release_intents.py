@@ -6,6 +6,7 @@ from business_agents.release_intents import (
     RELEASE_ROUTE,
     build_release_intent,
 )
+from business_agents.release_package import ReleasePackage, build_release_package
 from business_agents.release_review import ReleaseReview, ReleaseReviewDecision
 from business_agents.stock_eligibility import (
     StockEligibilityDecision,
@@ -49,64 +50,51 @@ def make_review(**changes):
     return ReleaseReview(**values)
 
 
-def test_build_release_intent_from_exact_approved_binding():
-    intent = build_release_intent(
-        eligibility=make_eligibility(),
-        review=make_review(),
-        handler_id="release-handler-v1",
-    )
+def make_package(**changes):
+    values = {
+        "release_package_id": "release-package-001",
+        "eligibility": make_eligibility(),
+        "review": make_review(),
+        "handler_id": "release-handler-v1",
+    }
+    values.update(changes)
+    return build_release_package(**values)
+
+
+def test_build_release_intent_from_immutable_package():
+    package = make_package()
+    intent = build_release_intent(package=package)
 
     assert intent.route == RELEASE_ROUTE
     assert intent.action == RELEASE_ACTION
-    assert intent.subject_id == "recv-001"
+    assert intent.subject_id == "release-package-001"
     assert intent.risk_level is RiskLevel.HIGH
     assert intent.approval_mode is ApprovalMode.STRONG_HUMAN
+    assert intent.parameters["release_package_id"] == "release-package-001"
+    assert intent.parameters["release_package_digest"] == package.package_digest
     assert intent.parameters["stock_eligibility_decision_id"] == "stock-001"
     assert intent.parameters["release_review_id"] == "review-001"
     assert intent.parameters["mutates_stock"] is False
     assert intent.parameters["executes_release"] is False
 
 
-def test_release_intent_rejects_non_eligible_decision():
-    with pytest.raises(ValueError, match="must be eligible"):
-        build_release_intent(
-            eligibility=make_eligibility(status=StockEligibilityStatus.NOT_ELIGIBLE),
-            review=make_review(),
-            handler_id="release-handler-v1",
-        )
+def test_release_intent_rejects_non_package():
+    with pytest.raises(ValueError, match="ReleasePackage"):
+        build_release_intent(package=object())
 
 
-def test_release_intent_rejects_non_approved_review():
-    with pytest.raises(ValueError, match="must be approved"):
-        build_release_intent(
-            eligibility=make_eligibility(),
-            review=make_review(decision=ReleaseReviewDecision.DENIED),
-            handler_id="release-handler-v1",
-        )
+def test_release_intent_rejects_tampered_package_digest():
+    package = make_package()
 
-
-def test_release_intent_rejects_decision_binding_mismatch():
-    with pytest.raises(ValueError, match="decision binding mismatch"):
-        build_release_intent(
-            eligibility=make_eligibility(),
-            review=make_review(stock_eligibility_decision_id="stock-002"),
-            handler_id="release-handler-v1",
-        )
-
-
-def test_release_intent_rejects_evidence_binding_mismatch():
-    with pytest.raises(ValueError, match="evidence_id binding mismatch"):
-        build_release_intent(
-            eligibility=make_eligibility(),
-            review=make_review(evidence_id="recv-002"),
-            handler_id="release-handler-v1",
-        )
-
-
-def test_release_intent_rejects_empty_handler_id():
-    with pytest.raises(ValueError, match="handler_id"):
-        build_release_intent(
-            eligibility=make_eligibility(),
-            review=make_review(),
-            handler_id=" ",
+    with pytest.raises(ValueError, match="does not match"):
+        ReleasePackage(
+            release_package_id=package.release_package_id,
+            artifact_id=package.artifact_id,
+            evidence_id=package.evidence_id,
+            inspection_id=package.inspection_id,
+            stock_eligibility_decision_id=package.stock_eligibility_decision_id,
+            release_review_id=package.release_review_id,
+            handler_id=package.handler_id,
+            quarantine_id=package.quarantine_id,
+            package_digest="f" * 64,
         )
