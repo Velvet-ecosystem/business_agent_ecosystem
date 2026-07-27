@@ -2,34 +2,47 @@
 
 ## Summary
 
-The business-agent ecosystem currently has a safe internal operating spine, a verified procurement dry-run path, a receiving verification chain for future goods intake evidence, stock eligibility decision records, and human release review records.
+The business ecosystem currently has a safe internal operating spine, verified procurement dry-run, receiving verification chain, stock-eligibility decision records, and explicit human release-review records.
 
-The repository can model business work, prepare reviewable artifacts, route approved intents through the existing Court path, write local receipts, verify procurement dry-run evidence, verify receiving evidence consistency, record stock eligibility decisions, and record explicit human release reviews.
+The repository can model business work, prepare reviewable artifacts, submit bounded intents, route approved work through the internal BusinessCoordinator compatibility bridge and Court path, write local receipts, and verify internal evidence.
 
-It does not perform real-world procurement, commerce, supplier communication, financial activity, fulfilment, stock release, or stock changes from received goods.
+It does not perform real-world procurement, commerce, supplier communication, financial activity, fulfilment, stock release, or stock mutation from received goods.
+
+## Architectural posture
+
+This repository is a bounded business surface within Unified-Organ AI.
+
+- Business organs observe, reason, prepare, and propose.
+- Event Protocol carries observations, requests, proposals, decisions, and results.
+- Runtime owns production execution coordination.
+- Court authorizes or denies bounded capability.
+- `BusinessCoordinator` currently composes the internal business-domain execution path; it is not a second Runtime.
+- Executors perform one approved operation.
+- Canonical Receipts preserve evidence.
+- Riven may preserve lineage references but does not own business authority.
 
 ## Proven internal slices
 
-- inventory review tasks,
-- customer intake review tasks,
-- durable job records,
-- authority-gated job transitions,
-- internal estimate drafts,
-- estimate-backed readiness,
-- approval and attention queue,
-- decision recording and lineage,
-- immutable procurement artifacts,
-- procurement intent bridge,
-- procurement safety gate,
-- dry-run procurement handler,
-- authorization and denial receipts,
-- read-only procurement evidence verifier,
-- receiving evidence records,
-- receiving inspection records,
-- receiving quarantine records,
-- read-only receiving chain verifier,
-- stock eligibility decision records,
-- human release review records.
+- inventory review tasks
+- customer intake review tasks
+- durable job records
+- authority-gated job transitions
+- internal estimate drafts
+- estimate-backed readiness
+- approval and attention queue
+- decision recording and lineage
+- immutable procurement artifacts
+- procurement intent bridge
+- procurement safety gate
+- dry-run procurement handler
+- authorization and denial receipts
+- read-only procurement evidence verifier
+- receiving evidence records
+- receiving inspection records
+- receiving quarantine records
+- read-only receiving chain verifier
+- stock eligibility decision records
+- human release review records
 
 ## Procurement maturity
 
@@ -42,18 +55,20 @@ requirement
   -> prepared package
   -> immutable artifact and digest
   -> review request
-  -> human decision
+  -> explicit human decision
   -> lineage
-  -> BusinessIntent
-  -> safety gate
-  -> CourtPolicy
-  -> BusinessCoordinator
+  -> canonical BusinessIntent
+  -> Event Protocol-compatible proposal
+  -> Runtime route and state posture
+  -> procurement safety gate
+  -> Court authorization or denial
+  -> internal BusinessCoordinator compatibility bridge
   -> dry-run handler
-  -> receipt
-  -> verifier
+  -> canonical Receipt
+  -> read-only verifier
 ```
 
-The procurement verifier checks that the approved intent, result, receipt, authorization id, authorization fingerprint, artifact id, digest, handler id, and no-real-world-effect flag all agree.
+The verifier checks that the approved intent, result, Receipt, authorization ID, authorization fingerprint, artifact ID, digest, handler ID, and `external_action: False` flag all agree.
 
 ## Receiving maturity
 
@@ -68,42 +83,55 @@ receiving evidence
   -> human release review
 ```
 
-Receiving evidence records what is claimed to have arrived. Inspection records compare received evidence against expected values and produce matched, needs-review, or rejected status. Quarantine records hold non-matched review or rejection reasons.
-
-The receiving verifier checks that evidence, inspection, and quarantine records agree on artifact id, evidence id, inspection id, quantity, supplier part number, manufacturer part number, findings, and quarantine reason codes.
+Receiving evidence records what is claimed to have arrived. Inspection records compare received evidence against expected values and produce `matched`, `needs-review`, or `rejected` status. Quarantine records hold non-matched review or rejection reasons.
 
 Matched inspections must not have quarantine. Non-matched inspections must have quarantine. Every receiving layer reports `eligible_for_stock = False`.
 
-Stock eligibility decisions can record eligible, not-eligible, or review-required status from a receiving verification result. Every stock eligibility decision reports `mutates_stock = False`.
-
-Release review records can record approved, denied, or needs-more-evidence status. They require an explicit human decision and always report `mutates_stock = False` and `executes_release = False`.
+Stock-eligibility decisions record `eligible`, `not-eligible`, or `review-required` without mutating stock. Release-review records require an explicit human decision and always report `mutates_stock = False` and `executes_release = False`.
 
 ## Hard boundary
 
 The following remain intentionally absent:
 
-- real supplier contact,
-- credential use,
-- checkout or purchase behavior,
-- fulfilment changes,
-- refunds or cancellations,
-- stock release execution,
-- received-goods stock mutation,
-- claims that a real-world result occurred.
+- real supplier contact
+- credential use
+- checkout or purchase behaviour
+- financial transfer
+- customer-facing sends
+- fulfilment changes
+- refunds or cancellations
+- stock release execution
+- received-goods stock mutation
+- physical equipment control
+- claims that a real-world result occurred
 
 ## Next gate
 
-The next milestone is authority-gated release intent design, not stock mutation.
+The next milestone is authority-gated release-intent design, not stock mutation.
 
-Before any stock mutation is possible, the system still needs contracts for:
+Before stock mutation is possible, the system still needs stable contracts for:
 
-- exact release review binding,
-- canonical release intent,
-- release safety gate,
-- Court authorization,
-- immutable release receipt,
-- inventory mutation proposal,
-- mutation safety gate,
-- post-mutation verification.
+- exact release-review binding
+- canonical release intent
+- Event Protocol route and result events
+- Runtime capability and state checks
+- release safety gate
+- Court authorization
+- immutable release Receipt
+- inventory-mutation proposal
+- mutation safety gate
+- post-mutation verification
+- recovery and discrepancy handling
 
 Only after those contracts are stable should the repository consider stock mutation or any real-world connector.
+
+## Verified Founder posture
+
+- Continuity: VERIFIED
+- Court: READY
+- Runtime: ACTIVE
+- Routes: READ-ONLY
+- Physical Control: DISABLED
+- Interface: `Waiting for Mister`
+
+The Founder boot verifies the public constitutional foundation. It does not activate external business actions in this repository.
