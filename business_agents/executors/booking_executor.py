@@ -80,21 +80,23 @@ class BookingExecutor(BaseExecutor):
                 raise ValueError("idempotency key is bound to another booking")
             record = existing
         else:
-            event = self.calendar_adapter.create_event(
-                CalendarEventRequest(
-                    idempotency_key=idempotency_key,
-                    title=str(intent.parameters["title"]),
-                    start=preparation.start,
-                    end=preparation.end,
-                    timezone=preparation.timezone,
-                    description=str(intent.parameters.get("description", "")),
+            try:
+                event = self.calendar_adapter.create_event(
+                    CalendarEventRequest(
+                        idempotency_key=idempotency_key,
+                        title=str(intent.parameters["title"]),
+                        start=preparation.start,
+                        end=preparation.end,
+                        timezone=preparation.timezone,
+                        description=str(intent.parameters.get("description", "")),
+                    )
                 )
-            )
+            except Exception as exc:
+                if self.operation_journal is not None:
+                    self.operation_journal.failed(operation_id, error=f"{type(exc).__name__}: {exc}")
+                raise
             if self.operation_journal is not None:
-                self.operation_journal.provider_confirmed(
-                    operation_id,
-                    external_id=event.event_id,
-                )
+                self.operation_journal.provider_confirmed(operation_id, external_id=event.event_id)
             record = BookingRecord(
                 booking_id=str(intent.parameters["booking_id"]),
                 job_id=job.job_id,
@@ -107,29 +109,16 @@ class BookingExecutor(BaseExecutor):
             )
             self.booking_store.create(record)
             if self.operation_journal is not None:
-                self.operation_journal.locally_recorded(
-                    operation_id,
-                    local_record_id=record.booking_id,
-                )
+                self.operation_journal.locally_recorded(operation_id, local_record_id=record.booking_id)
             created_now = event.created
 
         if existing is not None and self.operation_journal is not None:
             current = self.operation_journal.get(operation_id)
             if current is not None and current.external_id is None:
-                self.operation_journal.provider_confirmed(
-                    operation_id,
-                    external_id=record.event_id,
-                )
-            self.operation_journal.locally_recorded(
-                operation_id,
-                local_record_id=record.booking_id,
-            )
+                self.operation_journal.provider_confirmed(operation_id, external_id=record.event_id)
+            self.operation_journal.locally_recorded(operation_id, local_record_id=record.booking_id)
 
-        if job.status is JobStatus.READY_TO_SCHEDULE:
-            updated = self.job_store.transition(job.job_id, JobStatus.SCHEDULED)
-        else:
-            updated = job
-
+        updated = self.job_store.transition(job.job_id, JobStatus.SCHEDULED) if job.status is JobStatus.READY_TO_SCHEDULE else job
         receipt = self.receipt_store.append(
             actor="Booking Executor",
             decision="completed",

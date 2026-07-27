@@ -75,14 +75,19 @@ class NotificationDeliveryExecutor(BaseExecutor):
                 raise ValueError("idempotency key is bound to another delivery")
             record = existing
         else:
-            result = self.delivery_adapter.deliver(
-                DeliveryRequest(
-                    idempotency_key=key,
-                    recipient=draft.recipient,
-                    subject=draft.subject,
-                    body=draft.body,
+            try:
+                result = self.delivery_adapter.deliver(
+                    DeliveryRequest(
+                        idempotency_key=key,
+                        recipient=draft.recipient,
+                        subject=draft.subject,
+                        body=draft.body,
+                    )
                 )
-            )
+            except Exception as exc:
+                if self.operation_journal is not None:
+                    self.operation_journal.failed(operation_id, error=f"{type(exc).__name__}: {exc}")
+                raise
             if self.operation_journal is not None:
                 self.operation_journal.provider_confirmed(
                     operation_id,
