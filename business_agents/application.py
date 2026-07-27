@@ -1,4 +1,4 @@
-"""Authoritative composition root for the Velvet business-agent application."""
+"""Business-domain composition root for the Velvet business surface."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ def build_application(
     delivery_adapter: DeliveryAdapter | None = None,
     court: CourtPolicy | None = None,
 ) -> BusinessApplication:
-    """Build one coherent application graph from a single data directory."""
+    """Build one coherent business-domain graph from a single data directory."""
 
     data_dir.mkdir(parents=True, exist_ok=True)
     stores = ApplicationStores(

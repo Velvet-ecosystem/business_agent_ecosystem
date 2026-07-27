@@ -10,7 +10,31 @@ from business_agents.gateway.coordinator import BusinessCoordinator
 from business_agents.identity import VerifiedPrincipal
 
 
+def bind_verified_principal(
+    context: Mapping[str, Any],
+    principal: VerifiedPrincipal,
+    *,
+    max_age_seconds: float,
+) -> dict[str, Any]:
+    """Return principal-bound context after mandatory freshness validation."""
+    if max_age_seconds <= 0:
+        raise ValueError("max_age_seconds must be positive")
+    if not principal.is_fresh(max_age_seconds=max_age_seconds):
+        raise PermissionError("identity-stale")
+
+    enriched = dict(context)
+    enriched["_principal_id"] = principal.principal_id
+    enriched["_principal_display_name"] = principal.display_name
+    enriched["_principal_role"] = principal.role
+    enriched["_principal_session_id"] = principal.session_id
+    enriched["_principal_presence_level"] = principal.presence_level.value
+    enriched["_principal_verified_at"] = principal.verified_at
+    return enriched
+
+
 class VerifiedBusinessCoordinator:
+    """Canonical principal-aware business execution entry point."""
+
     def __init__(self, coordinator: BusinessCoordinator, *, max_age_seconds: float = 300.0) -> None:
         if max_age_seconds <= 0:
             raise ValueError("max_age_seconds must be positive")
@@ -24,16 +48,11 @@ class VerifiedBusinessCoordinator:
         *,
         principal: VerifiedPrincipal,
     ) -> ExecutorResult:
-        if not principal.is_fresh(max_age_seconds=self.max_age_seconds):
-            raise PermissionError("identity-stale")
-
-        enriched = dict(context)
-        enriched["_principal_id"] = principal.principal_id
-        enriched["_principal_display_name"] = principal.display_name
-        enriched["_principal_role"] = principal.role
-        enriched["_principal_session_id"] = principal.session_id
-        enriched["_principal_presence_level"] = principal.presence_level.value
-        enriched["_principal_verified_at"] = principal.verified_at
+        enriched = bind_verified_principal(
+            context,
+            principal,
+            max_age_seconds=self.max_age_seconds,
+        )
 
         result = self.coordinator.run(agent, enriched, identity_verified=True)
         self.coordinator.receipt_store.append(

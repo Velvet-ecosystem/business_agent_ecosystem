@@ -1,4 +1,5 @@
 from business_agents.contracts import ExecutorResult
+from business_agents.gateway.principal_coordinator import PrincipalBusinessCoordinator
 from business_agents.gateway.verified_coordinator import VerifiedBusinessCoordinator
 from business_agents.identity import PresenceLevel, VerifiedPrincipal
 
@@ -52,3 +53,24 @@ def test_stale_principal_is_rejected(monkeypatch) -> None:
         assert str(exc) == "identity-stale"
     else:
         raise AssertionError("stale principal was accepted")
+
+
+def test_compatibility_wrapper_binds_fresh_principal(monkeypatch) -> None:
+    base = Coordinator()
+    wrapper = PrincipalBusinessCoordinator(base, max_age_seconds=30)
+    monkeypatch.setattr(VerifiedPrincipal, "is_fresh", lambda self, max_age_seconds: True)
+    wrapper.run(object(), {}, principal=principal())
+    assert base.last_context["_principal_id"] == "owner-1"
+    assert base.last_context["_principal_session_id"] == "session-1"
+
+
+def test_compatibility_wrapper_rejects_stale_principal(monkeypatch) -> None:
+    base = Coordinator()
+    wrapper = PrincipalBusinessCoordinator(base, max_age_seconds=30)
+    monkeypatch.setattr(VerifiedPrincipal, "is_fresh", lambda self, max_age_seconds: False)
+    try:
+        wrapper.run(object(), {}, principal=principal())
+    except PermissionError as exc:
+        assert str(exc) == "identity-stale"
+    else:
+        raise AssertionError("compatibility wrapper accepted stale principal")
