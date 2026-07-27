@@ -1,8 +1,6 @@
 import pytest
 
-from business_agents.contracts import ApprovalMode, RiskLevel
-from business_agents.release_intents import RELEASE_ACTION, RELEASE_ROUTE, build_release_intent
-from business_agents.release_package import ReleasePackage, build_release_package
+from business_agents.release_package import ReleasePackage, ReleasePackageStore, build_release_package
 from business_agents.release_review import ReleaseReview, ReleaseReviewDecision
 from business_agents.stock_eligibility import StockEligibilityDecision, StockEligibilityStatus
 
@@ -54,25 +52,31 @@ def make_package(**changes):
     return build_release_package(**values)
 
 
-def test_build_release_intent_from_immutable_package():
+def test_release_package_digest_is_deterministic():
+    first = make_package()
+    second = make_package()
+    assert first.package_digest == second.package_digest
+    assert len(first.package_digest) == 64
+    assert first.mutates_stock is False
+    assert first.executes_release is False
+
+
+def test_release_package_round_trip(tmp_path):
+    store = ReleasePackageStore(tmp_path / "release_packages.jsonl")
     package = make_package()
-    intent = build_release_intent(package=package)
-    assert intent.route == RELEASE_ROUTE
-    assert intent.action == RELEASE_ACTION
-    assert intent.subject_id == "release-package-001"
-    assert intent.risk_level is RiskLevel.HIGH
-    assert intent.approval_mode is ApprovalMode.STRONG_HUMAN
-    assert intent.parameters["release_package_digest"] == package.package_digest
-    assert intent.parameters["mutates_stock"] is False
-    assert intent.parameters["executes_release"] is False
+    store.add(package)
+    assert store.get("release-package-001") == package
 
 
-def test_release_intent_rejects_non_package():
-    with pytest.raises(ValueError, match="ReleasePackage"):
-        build_release_intent(package=object())
+def test_duplicate_release_package_id_is_rejected(tmp_path):
+    store = ReleasePackageStore(tmp_path / "release_packages.jsonl")
+    package = make_package()
+    store.add(package)
+    with pytest.raises(ValueError):
+        store.add(package)
 
 
-def test_release_package_rejects_tampered_digest():
+def test_release_package_rejects_changed_digest():
     package = make_package()
     with pytest.raises(ValueError, match="does not match"):
         ReleasePackage(
@@ -84,5 +88,25 @@ def test_release_package_rejects_tampered_digest():
             release_review_id=package.release_review_id,
             handler_id=package.handler_id,
             quarantine_id=package.quarantine_id,
-            package_digest="f" * 64,
+            package_digest="0" * 64,
         )
+
+
+def test_release_package_rejects_non_eligible_decision():
+    with pytest.raises(ValueError, match="must be eligible"):
+        make_package(eligibility=make_eligibility(status=StockEligibilityStatus.NOT_ELIGIBLE))
+
+
+def test_release_package_rejects_non_approved_review():
+    with pytest.raises(ValueError, match="must be approved"):
+        make_package(review=make_review(decision=ReleaseReviewDecision.DENIED))
+
+
+def test_release_package_rejects_binding_mismatch():
+    with pytest.raises(ValueError, match="evidence_id binding mismatch"):
+        make_package(review=make_review(evidence_id="recv-002"))
+
+
+def test_release_package_rejects_empty_handler_id():
+    with pytest.raises(ValueError, match="handler_id"):
+        make_package(handler_id=" ")
