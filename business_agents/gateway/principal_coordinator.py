@@ -1,4 +1,4 @@
-"""Strict principal-aware wrapper around the business coordinator."""
+"""Compatibility wrapper for principal-aware business execution."""
 
 from __future__ import annotations
 
@@ -7,14 +7,22 @@ from typing import Any, Mapping
 from business_agents.agents.base_agent import BaseAgent
 from business_agents.contracts import ExecutorResult
 from business_agents.gateway.coordinator import BusinessCoordinator
+from business_agents.gateway.verified_coordinator import bind_verified_principal
 from business_agents.identity import VerifiedPrincipal
 
 
 class PrincipalBusinessCoordinator:
-    """Requires an explicit verified principal for every public execution."""
+    """Compatibility entry point with mandatory principal freshness checks.
 
-    def __init__(self, coordinator: BusinessCoordinator) -> None:
+    New integrations should prefer ``VerifiedBusinessCoordinator``. This name is
+    retained so existing callers keep working while sharing the same binding law.
+    """
+
+    def __init__(self, coordinator: BusinessCoordinator, *, max_age_seconds: float = 300.0) -> None:
+        if max_age_seconds <= 0:
+            raise ValueError("max_age_seconds must be positive")
         self.coordinator = coordinator
+        self.max_age_seconds = float(max_age_seconds)
 
     def run(
         self,
@@ -23,14 +31,11 @@ class PrincipalBusinessCoordinator:
         *,
         principal: VerifiedPrincipal,
     ) -> ExecutorResult:
-        enriched = dict(context)
-        enriched["_principal_id"] = principal.principal_id
-        enriched["_principal_display_name"] = principal.display_name
-        enriched["_principal_role"] = principal.role
-        enriched["_principal_session_id"] = principal.session_id
-        enriched["_principal_presence_level"] = principal.presence_level.value
-        enriched["_principal_verified_at"] = principal.verified_at
-
+        enriched = bind_verified_principal(
+            context,
+            principal,
+            max_age_seconds=self.max_age_seconds,
+        )
         return self.coordinator.run(
             agent,
             enriched,
