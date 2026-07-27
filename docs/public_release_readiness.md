@@ -2,6 +2,8 @@
 
 This repository is an alpha-stage, local-first business operations framework. Public release does not mean production authority or external commerce is enabled.
 
+See [Public Release Verification](public_release_verification.md) for the current evidence record and the remaining owner-controlled visibility steps.
+
 ## Safe public scope
 
 Public-safe material includes:
@@ -39,7 +41,9 @@ Before changing repository visibility, confirm:
 - examples contain synthetic identities and addresses only;
 - Runtime, Court, Event Protocol, Receipts, and Riven boundaries remain explicit;
 - external actions remain idempotent, journalled, and fail closed;
-- the README status matches actual implemented capabilities.
+- the README status matches actual implemented capabilities;
+- a full Git-history secret scan has completed;
+- repository security settings have been reviewed before visibility changes.
 
 ## Founder compatibility
 
