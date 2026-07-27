@@ -11,6 +11,7 @@ from business_agents.bookings import BookingPreparation, JsonlBookingPreparation
 from business_agents.calendar_adapter import InMemoryCalendarAdapter
 from business_agents.executors.booking_executor import BookingExecutor
 from business_agents.executors.registry import ExecutorRegistry
+from business_agents.external_operations import ExternalOperationJournal, ExternalOperationState
 from business_agents.gateway.authority import CourtPolicy
 from business_agents.gateway.booking_safety_gate import BookingSafetyGate
 from business_agents.gateway.coordinator import BusinessCoordinator
@@ -35,15 +36,16 @@ def build(tmp_path: Path, *, fail: bool = False):
     jobs = JsonlJobStore(tmp_path / "jobs.jsonl")
     preparations = JsonlBookingPreparationStore(tmp_path / "preparations.jsonl")
     bookings = JsonlBookingStore(tmp_path / "bookings.jsonl")
+    operations = ExternalOperationJournal(tmp_path / "external_operations.jsonl")
     adapter = InMemoryCalendarAdapter(fail=fail)
-    executor = BookingExecutor(jobs, preparations, bookings, adapter, receipts)
+    executor = BookingExecutor(jobs, preparations, bookings, adapter, receipts, operations)
     coordinator = BusinessCoordinator(
         court=CourtPolicy(),
         safety_gate=BookingSafetyGate(),
         executor_registry=ExecutorRegistry([executor]),
         receipt_store=receipts,
     )
-    return coordinator, jobs, preparations, bookings, adapter
+    return coordinator, jobs, preparations, bookings, adapter, operations
 
 
 def seed(jobs: JsonlJobStore, preparations: JsonlBookingPreparationStore) -> None:
@@ -67,7 +69,7 @@ def seed(jobs: JsonlJobStore, preparations: JsonlBookingPreparationStore) -> Non
 
 
 def test_successful_booking_creates_event_then_schedules_job(tmp_path: Path) -> None:
-    coordinator, jobs, preparations, bookings, adapter = build(tmp_path)
+    coordinator, jobs, preparations, bookings, adapter, operations = build(tmp_path)
     seed(jobs, preparations)
     result = coordinator.run(BookingAgent(), context(), identity_verified=True)
     assert result.output["calendar_event_created_now"] is True
@@ -75,10 +77,11 @@ def test_successful_booking_creates_event_then_schedules_job(tmp_path: Path) -> 
     assert jobs.require("JOB-0001").status is JobStatus.SCHEDULED
     assert bookings.get("BOOK-0001") is not None
     assert len(adapter.events) == 1
+    assert operations.get("calendar:book-JOB-0001-PREP-0001").state is ExternalOperationState.LOCALLY_RECORDED
 
 
 def test_retry_with_same_key_does_not_duplicate_event(tmp_path: Path) -> None:
-    coordinator, jobs, preparations, _, adapter = build(tmp_path)
+    coordinator, jobs, preparations, _, adapter, _ = build(tmp_path)
     seed(jobs, preparations)
     first = coordinator.run(BookingAgent(), context(), identity_verified=True)
     second = coordinator.run(BookingAgent(), context(), identity_verified=True)
@@ -87,18 +90,22 @@ def test_retry_with_same_key_does_not_duplicate_event(tmp_path: Path) -> None:
     assert len(adapter.events) == 1
 
 
-def test_adapter_failure_leaves_job_ready_to_schedule(tmp_path: Path) -> None:
-    coordinator, jobs, preparations, bookings, adapter = build(tmp_path, fail=True)
+def test_adapter_failure_leaves_job_ready_to_schedule_and_journals_failure(tmp_path: Path) -> None:
+    coordinator, jobs, preparations, bookings, adapter, operations = build(tmp_path, fail=True)
     seed(jobs, preparations)
     with pytest.raises(RuntimeError, match="calendar adapter failure"):
         coordinator.run(BookingAgent(), context(), identity_verified=True)
     assert jobs.require("JOB-0001").status is JobStatus.READY_TO_SCHEDULE
     assert bookings.get("BOOK-0001") is None
     assert adapter.events == {}
+    failed = operations.get("calendar:book-JOB-0001-PREP-0001")
+    assert failed is not None
+    assert failed.state is ExternalOperationState.FAILED
+    assert "calendar adapter failure" in (failed.error or "")
 
 
 def test_scheduled_job_cannot_create_second_booking(tmp_path: Path) -> None:
-    coordinator, jobs, preparations, _, adapter = build(tmp_path)
+    coordinator, jobs, preparations, _, adapter, _ = build(tmp_path)
     seed(jobs, preparations)
     coordinator.run(BookingAgent(), context(), identity_verified=True)
     with pytest.raises(ValueError, match="cannot create another booking"):
