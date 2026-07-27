@@ -13,12 +13,28 @@ class DeliveryRequest:
     subject: str
     body: str
 
+    def __post_init__(self) -> None:
+        if not self.idempotency_key.strip():
+            raise ValueError("idempotency_key is required")
+        if not self.recipient.strip():
+            raise ValueError("recipient is required")
+        if not self.subject.strip():
+            raise ValueError("subject is required")
+        if not self.body.strip():
+            raise ValueError("body is required")
+
 
 @dataclass(frozen=True)
 class DeliveryResult:
     provider_message_id: str
     idempotency_key: str
     created_now: bool
+
+    def __post_init__(self) -> None:
+        if not self.provider_message_id.strip():
+            raise ValueError("provider_message_id is required")
+        if not self.idempotency_key.strip():
+            raise ValueError("idempotency_key is required")
 
 
 class DeliveryAdapter(Protocol):
@@ -27,6 +43,8 @@ class DeliveryAdapter(Protocol):
 
 
 class InMemoryDeliveryAdapter:
+    """Deterministic adapter for tests and local development."""
+
     def __init__(self, *, fail: bool = False) -> None:
         self.fail = fail
         self.results: dict[str, DeliveryResult] = {}
