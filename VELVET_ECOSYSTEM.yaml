@@ -1,0 +1,9 @@
+schema_version: 1
+repository: business_agent_ecosystem
+ecosystem: Velvet
+relationship: adjacent_application
+canonical_map: https://github.com/Velvet-ecosystem/velvet-docs/blob/main/ecosystem.yaml
+canonical_docs: https://github.com/Velvet-ecosystem/velvet-docs
+notes:
+  - This repository is part of the wider Velvet ecosystem but is not a core shared organ.
+  - Canonical authority, runtime, event, communications, language, audio, library, receipts, and continuity responsibilities remain with their owning Velvet repositories.
